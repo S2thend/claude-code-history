@@ -1,0 +1,5 @@
+{"type":"summary","summary":"Corrupted session for testing error handling","leafUuid":"corrupt-msg-002"}
+{"type":"user","uuid":"corrupt-msg-001","parentUuid":null,"timestamp":"2025-12-01T11:00:00.000Z","sessionId":"test-corrupt-001","cwd":"/Users/test/project","gitBranch":"main","version":"2.0.55","userType":"external","isSidechain":false,"isMeta":false,"message":{"role":"user","content":"This is a valid message"}}
+this is not valid json at all
+{"type":"assistant","uuid":"corrupt-msg-002","parentUuid":"corrupt-msg-001","timestamp":"2025-12-01T11:00:30.000Z","sessionId":"test-corrupt-001"
+{"type":"user","uuid":"corrupt-msg-003","parentUuid":"corrupt-msg-002","timestamp":"2025-12-01T11:01:00.000Z","sessionId":"test-corrupt-001","cwd":"/Users/test/project","gitBranch":"main","version":"2.0.55","userType":"external","isSidechain":false,"isMeta":false,"message":{"role":"user","content":"Another valid message after corruption"}}
