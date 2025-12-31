@@ -1,0 +1,386 @@
+/**
+ * Core Library API Contracts
+ *
+ * TypeScript interfaces for claude-code-history library.
+ * This file defines the public API contract.
+ *
+ * @packageDocumentation
+ */
+
+// =============================================================================
+// Configuration
+// =============================================================================
+
+/**
+ * Configuration options for library functions.
+ */
+export interface LibraryConfig {
+  /** Custom Claude Code data directory path. Auto-detected if not provided. */
+  dataPath?: string;
+
+  /** Filter sessions by workspace/project path. */
+  workspace?: string;
+
+  /** Maximum number of results to return. Default: 50 */
+  limit?: number;
+
+  /** Number of results to skip (for pagination). Default: 0 */
+  offset?: number;
+
+  /** Number of context lines for search results. Default: 2 */
+  context?: number;
+}
+
+// =============================================================================
+// Session Types
+// =============================================================================
+
+/**
+ * Lightweight session metadata for listing.
+ */
+export interface SessionSummary {
+  /** Session UUID */
+  id: string;
+
+  /** Decoded project path (e.g., /Users/name/project) */
+  projectPath: string;
+
+  /** Human-readable session title */
+  summary: string | null;
+
+  /** Session start time */
+  timestamp: Date;
+
+  /** Most recent message time */
+  lastActivityAt: Date;
+
+  /** Total message count */
+  messageCount: number;
+
+  /** Linked agent session IDs */
+  agentIds: string[];
+}
+
+/**
+ * Full session with all messages.
+ */
+export interface Session extends SessionSummary {
+  /** Encoded directory name */
+  encodedPath: string;
+
+  /** Claude Code version */
+  version: string;
+
+  /** Git branch at session start */
+  gitBranch: string | null;
+
+  /** All messages in the session */
+  messages: Message[];
+}
+
+// =============================================================================
+// Message Types
+// =============================================================================
+
+/** Message type discriminator */
+export type MessageType = 'user' | 'assistant' | 'summary' | 'file-history-snapshot';
+
+/**
+ * Base message structure.
+ */
+export interface BaseMessage {
+  /** Unique message identifier */
+  uuid: string;
+
+  /** Parent message UUID (for threading) */
+  parentUuid: string | null;
+
+  /** Message type discriminator */
+  type: MessageType;
+
+  /** When message was created */
+  timestamp: Date;
+}
+
+/**
+ * User message or tool result.
+ */
+export interface UserMessage extends BaseMessage {
+  type: 'user';
+  role: 'user';
+  content: string | ToolResultContent[];
+  cwd: string;
+  gitBranch: string | null;
+  isSidechain: boolean;
+}
+
+/**
+ * Assistant (Claude) response.
+ */
+export interface AssistantMessage extends BaseMessage {
+  type: 'assistant';
+  role: 'assistant';
+  model: string;
+  content: AssistantContent[];
+  stopReason: string | null;
+  usage: TokenUsage;
+}
+
+/**
+ * Session summary entry.
+ */
+export interface SummaryMessage extends BaseMessage {
+  type: 'summary';
+  summary: string;
+  leafUuid: string;
+}
+
+/**
+ * File history snapshot entry.
+ */
+export interface FileHistorySnapshotMessage extends BaseMessage {
+  type: 'file-history-snapshot';
+  messageId: string;
+  snapshot: FileSnapshot;
+}
+
+/** Union of all message types */
+export type Message = UserMessage | AssistantMessage | SummaryMessage | FileHistorySnapshotMessage;
+
+// =============================================================================
+// Content Types
+// =============================================================================
+
+/** Text content block */
+export interface TextContent {
+  type: 'text';
+  text: string;
+}
+
+/** Tool use (invocation) content */
+export interface ToolUseContent {
+  type: 'tool_use';
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+}
+
+/** Thinking/reasoning content */
+export interface ThinkingContent {
+  type: 'thinking';
+  thinking: string;
+}
+
+/** Union of assistant content types */
+export type AssistantContent = TextContent | ToolUseContent | ThinkingContent;
+
+/** Tool result content */
+export interface ToolResultContent {
+  type: 'tool_result';
+  tool_use_id: string;
+  content: string;
+  is_error?: boolean;
+}
+
+// =============================================================================
+// Supporting Types
+// =============================================================================
+
+/** Token usage metrics */
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationInputTokens: number;
+  cacheReadInputTokens: number;
+}
+
+/** File snapshot for history tracking */
+export interface FileSnapshot {
+  messageId: string;
+  timestamp: Date;
+  trackedFileBackups: Record<string, FileBackup>;
+}
+
+/** Individual file backup entry */
+export interface FileBackup {
+  backupFileName: string;
+  version: number;
+  backupTime: Date;
+}
+
+// =============================================================================
+// Pagination
+// =============================================================================
+
+/** Pagination metadata */
+export interface Pagination {
+  /** Total number of matching items */
+  total: number;
+
+  /** Items per page */
+  limit: number;
+
+  /** Current offset */
+  offset: number;
+
+  /** Whether more results exist */
+  hasMore: boolean;
+}
+
+/** Paginated result wrapper */
+export interface PaginatedResult<T> {
+  /** Result items */
+  data: T[];
+
+  /** Pagination metadata */
+  pagination: Pagination;
+}
+
+// =============================================================================
+// Search Types
+// =============================================================================
+
+/** Search result match */
+export interface SearchMatch {
+  /** Session containing the match */
+  sessionId: string;
+
+  /** Session summary for context */
+  sessionSummary: string | null;
+
+  /** Project path */
+  projectPath: string;
+
+  /** Message UUID containing match */
+  messageUuid: string;
+
+  /** Message type (user/assistant) */
+  messageType: 'user' | 'assistant';
+
+  /** Matched text */
+  match: string;
+
+  /** Surrounding context lines */
+  context: string[];
+
+  /** Line number in message content */
+  lineNumber: number;
+}
+
+// =============================================================================
+// Migration Types
+// =============================================================================
+
+/** Migration configuration for specific sessions */
+export interface MigrateConfig {
+  /** Session(s) to migrate - index or UUID, single or array */
+  sessions: number | string | (number | string)[];
+
+  /** Destination workspace path */
+  destination: string;
+
+  /** Migration mode. Default: 'copy' */
+  mode?: 'copy' | 'move';
+}
+
+/** Migration configuration for entire workspace */
+export interface MigrateWorkspaceConfig {
+  /** Source workspace path */
+  source: string;
+
+  /** Destination workspace path */
+  destination: string;
+
+  /** Migration mode. Default: 'copy' */
+  mode?: 'copy' | 'move';
+}
+
+/** Migration error detail */
+export interface MigrateError {
+  sessionId: string;
+  error: string;
+}
+
+/** Migration result */
+export interface MigrateResult {
+  /** Number of successfully migrated sessions */
+  successCount: number;
+
+  /** Number of failed migrations */
+  failedCount: number;
+
+  /** Error details for failed migrations */
+  errors: MigrateError[];
+}
+
+// =============================================================================
+// Public API Functions
+// =============================================================================
+
+/**
+ * List sessions with pagination.
+ * Sessions are sorted by most recent first (descending timestamp).
+ */
+export type ListSessionsFn = (config?: LibraryConfig) => Promise<PaginatedResult<SessionSummary>>;
+
+/**
+ * Get full session details by index or UUID.
+ * @param indexOrId - Zero-based index or session UUID
+ */
+export type GetSessionFn = (indexOrId: number | string, config?: LibraryConfig) => Promise<Session>;
+
+/**
+ * Search sessions by keyword.
+ * @param query - Search query (case-insensitive)
+ */
+export type SearchSessionsFn = (query: string, config?: LibraryConfig) => Promise<SearchMatch[]>;
+
+/**
+ * Get platform-specific Claude Code data path.
+ */
+export type GetDefaultDataPathFn = () => string;
+
+/**
+ * Export single session to JSON format.
+ * @param indexOrId - Zero-based index or session UUID
+ */
+export type ExportSessionToJsonFn = (indexOrId: number | string, config?: LibraryConfig) => Promise<string>;
+
+/**
+ * Export single session to Markdown format.
+ * @param indexOrId - Zero-based index or session UUID
+ */
+export type ExportSessionToMarkdownFn = (indexOrId: number | string, config?: LibraryConfig) => Promise<string>;
+
+/**
+ * Export all sessions to JSON format.
+ */
+export type ExportAllSessionsToJsonFn = (config?: LibraryConfig) => Promise<string>;
+
+/**
+ * Export all sessions to Markdown format.
+ */
+export type ExportAllSessionsToMarkdownFn = (config?: LibraryConfig) => Promise<string>;
+
+/**
+ * Migrate specific session(s) to another workspace.
+ */
+export type MigrateSessionFn = (config: MigrateConfig) => Promise<MigrateResult>;
+
+/**
+ * Migrate all sessions between workspaces.
+ */
+export type MigrateWorkspaceFn = (config: MigrateWorkspaceConfig) => Promise<MigrateResult>;
+
+// =============================================================================
+// Error Type Guards
+// =============================================================================
+
+/** Check if error is SessionNotFoundError */
+export type IsSessionNotFoundErrorFn = (error: unknown) => boolean;
+
+/** Check if error is WorkspaceNotFoundError */
+export type IsWorkspaceNotFoundErrorFn = (error: unknown) => boolean;
+
+/** Check if error is DataNotFoundError */
+export type IsDataNotFoundErrorFn = (error: unknown) => boolean;
