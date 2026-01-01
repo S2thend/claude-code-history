@@ -12,6 +12,9 @@ import { handleError } from './utils/errors.js';
 import type { GlobalOptions } from './utils/config.js';
 import { registerListCommand } from './commands/list.js';
 import { registerViewCommand } from './commands/view.js';
+import { registerSearchCommand } from './commands/search.js';
+import { registerExportCommand } from './commands/export.js';
+import { registerMigrateCommand } from './commands/migrate.js';
 
 const program = new Command();
 
@@ -28,9 +31,10 @@ program
 // Register commands
 registerListCommand(program);
 registerViewCommand(program);
-// - search (T040)
-// - export (T048)
-// - migrate (T056)
+registerSearchCommand(program);
+registerExportCommand(program);
+registerMigrateCommand(program);
+// - migrate (T056) - DONE
 
 // Handle uncaught errors
 process.on('uncaughtException', (error) => {

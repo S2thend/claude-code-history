@@ -116,18 +116,18 @@
 
 ### Tests for User Story 3
 
-- [ ] T033 [P] [US3] Integration test for search command basic output in `tests/integration/cli/search.test.ts`
-- [ ] T034 [P] [US3] Integration test for search --session filter in `tests/integration/cli/search.test.ts`
-- [ ] T035 [P] [US3] Integration test for search --context option in `tests/integration/cli/search.test.ts`
-- [ ] T036 [P] [US3] Integration test for search --json output in `tests/integration/cli/search.test.ts`
+- [x] T033 [P] [US3] Integration test for search command basic output in `tests/integration/cli/search.test.ts`
+- [x] T034 [P] [US3] Integration test for search --session filter in `tests/integration/cli/search.test.ts`
+- [x] T035 [P] [US3] Integration test for search --context option in `tests/integration/cli/search.test.ts`
+- [x] T036 [P] [US3] Integration test for search --json output in `tests/integration/cli/search.test.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T037 [P] [US3] Implement search result formatter in `src/cli/formatters/search.ts`
-- [ ] T038 [P] [US3] Unit test for search formatter in `tests/unit/cli/formatters/search.test.ts`
-- [ ] T039 [US3] Implement search command with options (--session, --context, --limit, --offset) in `src/cli/commands/search.ts`
-- [ ] T040 [US3] Register search command in `src/cli/index.ts`
-- [ ] T041 [US3] Handle no matches with user-friendly message
+- [x] T037 [P] [US3] Implement search result formatter in `src/cli/formatters/search.ts`
+- [x] T038 [P] [US3] Unit test for search formatter in `tests/unit/cli/formatters/search.test.ts`
+- [x] T039 [US3] Implement search command with options (--session, --context, --limit, --offset) in `src/cli/commands/search.ts`
+- [x] T040 [US3] Register search command in `src/cli/index.ts`
+- [x] T041 [US3] Handle no matches with user-friendly message
 
 **Checkpoint**: `cch search` fully functional - can search across or within sessions
 
@@ -141,17 +141,17 @@
 
 ### Tests for User Story 4
 
-- [ ] T042 [P] [US4] Integration test for export to stdout (JSON format) in `tests/integration/cli/export.test.ts`
-- [ ] T043 [P] [US4] Integration test for export to stdout (Markdown format) in `tests/integration/cli/export.test.ts`
-- [ ] T044 [P] [US4] Integration test for export to file with --output in `tests/integration/cli/export.test.ts`
-- [ ] T045 [P] [US4] Integration test for export --all option in `tests/integration/cli/export.test.ts`
+- [x] T042 [P] [US4] Integration test for export to stdout (JSON format) in `tests/integration/cli/export.test.ts`
+- [x] T043 [P] [US4] Integration test for export to stdout (Markdown format) in `tests/integration/cli/export.test.ts`
+- [x] T044 [P] [US4] Integration test for export to file with --output in `tests/integration/cli/export.test.ts`
+- [x] T045 [P] [US4] Integration test for export --all option in `tests/integration/cli/export.test.ts`
 
 ### Implementation for User Story 4
 
-- [ ] T046 [US4] Implement export command with options (--format, --output, --all) in `src/cli/commands/export.ts`
-- [ ] T047 [US4] Implement file writing with output path validation in `src/cli/commands/export.ts`
-- [ ] T048 [US4] Register export command in `src/cli/index.ts`
-- [ ] T049 [US4] Handle file write errors with user-friendly message
+- [x] T046 [US4] Implement export command with options (--format, --output, --all) in `src/cli/commands/export.ts`
+- [x] T047 [US4] Implement file writing with output path validation in `src/cli/commands/export.ts`
+- [x] T048 [US4] Register export command in `src/cli/index.ts`
+- [x] T049 [US4] Handle file write errors with user-friendly message
 
 **Checkpoint**: `cch export` fully functional - can export single or all sessions to JSON/Markdown
 
@@ -165,17 +165,17 @@
 
 ### Tests for User Story 5
 
-- [ ] T050 [P] [US5] Integration test for migrate copy mode in `tests/integration/cli/migrate.test.ts`
-- [ ] T051 [P] [US5] Integration test for migrate move mode in `tests/integration/cli/migrate.test.ts`
-- [ ] T052 [P] [US5] Integration test for migrate multiple sessions in `tests/integration/cli/migrate.test.ts`
-- [ ] T053 [P] [US5] Integration test for migrate error handling in `tests/integration/cli/migrate.test.ts`
+- [x] T050 [P] [US5] Integration test for migrate copy mode in `tests/integration/cli/migrate.test.ts`
+- [x] T051 [P] [US5] Integration test for migrate move mode in `tests/integration/cli/migrate.test.ts`
+- [x] T052 [P] [US5] Integration test for migrate multiple sessions in `tests/integration/cli/migrate.test.ts`
+- [x] T053 [P] [US5] Integration test for migrate error handling in `tests/integration/cli/migrate.test.ts`
 
 ### Implementation for User Story 5
 
-- [ ] T054 [US5] Implement migrate command with options (--destination, --mode) in `src/cli/commands/migrate.ts`
-- [ ] T055 [US5] Implement progress output for multi-session migration in `src/cli/commands/migrate.ts`
-- [ ] T056 [US5] Register migrate command in `src/cli/index.ts`
-- [ ] T057 [US5] Handle partial failures (some succeed, some fail) with summary output
+- [x] T054 [US5] Implement migrate command with options (--destination, --mode) in `src/cli/commands/migrate.ts`
+- [x] T055 [US5] Implement progress output for multi-session migration in `src/cli/commands/migrate.ts`
+- [x] T056 [US5] Register migrate command in `src/cli/index.ts`
+- [x] T057 [US5] Handle partial failures (some succeed, some fail) with summary output
 
 **Checkpoint**: `cch migrate` fully functional - can copy/move sessions between workspaces
 
@@ -189,15 +189,15 @@
 
 ### Tests for User Story 6
 
-- [ ] T058 [P] [US6] Integration test for --data-path option in `tests/integration/cli/config.test.ts`
-- [ ] T059 [P] [US6] Integration test for CCH_DATA_PATH environment variable in `tests/integration/cli/config.test.ts`
-- [ ] T060 [P] [US6] Integration test for invalid path error handling in `tests/integration/cli/config.test.ts`
+- [x] T058 [P] [US6] Integration test for --data-path option in `tests/integration/cli/config.test.ts`
+- [x] T059 [P] [US6] Integration test for CCH_DATA_PATH environment variable in `tests/integration/cli/config.test.ts`
+- [x] T060 [P] [US6] Integration test for invalid path error handling in `tests/integration/cli/config.test.ts`
 
 ### Implementation for User Story 6
 
-- [ ] T061 [US6] Implement environment variable fallback in resolveConfig() in `src/cli/utils/config.ts`
-- [ ] T062 [US6] Implement path validation for custom data path in `src/cli/utils/config.ts`
-- [ ] T063 [US6] Unit test for config resolution priority in `tests/unit/cli/utils/config.test.ts`
+- [x] T061 [US6] Implement environment variable fallback in resolveConfig() in `src/cli/utils/config.ts`
+- [x] T062 [US6] Implement path validation for custom data path in `src/cli/utils/config.ts`
+- [x] T063 [US6] Unit test for config resolution priority in `tests/unit/cli/utils/config.test.ts`
 
 **Checkpoint**: Custom data path fully functional - --data-path and CCH_DATA_PATH work correctly
 
@@ -207,14 +207,14 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T064 [P] Add comprehensive --help examples for all commands in `src/cli/index.ts`
+- [x] T064 [P] Add comprehensive --help examples for all commands in `src/cli/index.ts`
 - [ ] T065 [P] Optional: Install chalk and add color support with NO_COLOR fallback in `src/cli/utils/colors.ts`
-- [ ] T066 [P] Unit tests for error formatting in `tests/unit/cli/utils/errors.test.ts`
-- [ ] T067 [P] Unit tests for output utilities in `tests/unit/cli/utils/output.test.ts`
-- [ ] T068 Ensure all commands respect --full flag for pagination bypass
-- [ ] T069 Run full test suite and fix any failures
-- [ ] T070 Validate quickstart.md steps work end-to-end
-- [ ] T071 Update CLAUDE.md with CLI usage examples
+- [x] T066 [P] Unit tests for error formatting in `tests/unit/cli/utils/errors.test.ts`
+- [x] T067 [P] Unit tests for output utilities in `tests/unit/cli/utils/output.test.ts`
+- [x] T068 Ensure all commands respect --full flag for pagination bypass
+- [x] T069 Run full test suite and fix any failures
+- [x] T070 Validate quickstart.md steps work end-to-end
+- [x] T071 Update CLAUDE.md with CLI usage examples
 
 ---
 

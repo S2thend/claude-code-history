@@ -12,12 +12,58 @@ Auto-generated from all feature plans. Last updated: 2025-12-31
 
 ```text
 src/
+  cli/          # CLI UI layer
+    commands/   # Command implementations (list, view, search, export, migrate)
+    formatters/ # Output formatting (table, session, search)
+    utils/      # Config, errors, output utilities
+  lib/          # Core library layer
 tests/
+  integration/  # Integration tests
+    cli/        # CLI integration tests
+  unit/         # Unit tests
+    cli/        # CLI unit tests
 ```
 
 ## Commands
 
 npm test && npm run lint
+
+## CLI Usage Examples
+
+```bash
+# List all sessions
+cch list
+cch list --workspace /path/to/project
+cch list --limit 10 --offset 20
+cch list --json
+
+# View session content
+cch view 0                    # By index (most recent)
+cch view abc123-def456       # By UUID
+cch view 0 --json            # JSON output
+
+# Search across sessions
+cch search "query"
+cch search "error" --context 3
+cch search "fix" --session 0  # Search within specific session
+cch search "bug" --json
+
+# Export sessions
+cch export 0                      # Export to JSON (stdout)
+cch export 0 --format markdown    # Export to Markdown
+cch export 0 -o session.json      # Export to file
+cch export --all -o all.json      # Export all sessions
+
+# Migrate sessions
+cch migrate 0 --destination /new/project
+cch migrate 0,1,2 -D /new/project --mode move
+cch migrate --all --source /old/project --destination /new/project
+
+# Global options
+cch --data-path /custom/path list    # Custom data directory
+cch -j list                          # JSON output shorthand
+cch -f view 0                        # Full output (no paging)
+```
 
 ## Code Style
 
