@@ -24,9 +24,7 @@ import { outputWithPager } from '../formatters/pager.js';
 /**
  * View command options
  */
-interface ViewOptions extends GlobalOptions {
-  // Session identifier is passed as argument
-}
+type ViewOptions = GlobalOptions;
 
 /**
  * Execute the view command

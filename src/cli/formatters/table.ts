@@ -74,7 +74,7 @@ function getDisplaySummary(session: SessionSummary): string {
 function getProjectName(projectPath: string): string {
   // Get the last component of the path
   const parts = projectPath.split(/[/\\]/);
-  return parts[parts.length - 1] || projectPath;
+  return parts[parts.length - 1] ?? projectPath;
 }
 
 /**
@@ -86,7 +86,7 @@ function getProjectName(projectPath: string): string {
  */
 export function formatSessionTable(
   sessions: SessionSummary[],
-  offset: number = 0
+  offset = 0
 ): string {
   if (sessions.length === 0) {
     return 'No sessions found.';
@@ -149,8 +149,8 @@ export function formatSessionTable(
  */
 export function formatSessionsForJson(
   sessions: SessionSummary[],
-  offset: number = 0
-): Array<SessionSummary & { index: number }> {
+  offset = 0
+): (SessionSummary & { index: number })[] {
   return sessions.map((session, i) => ({
     index: offset + i,
     ...session,

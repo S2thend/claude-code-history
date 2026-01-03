@@ -31,32 +31,6 @@ function runCli(args: string): string {
   }
 }
 
-/**
- * Execute CLI command and return exit code
- */
-function runCliWithExit(args: string): { stdout: string; exitCode: number } {
-  try {
-    const stdout = execSync(`node ${CLI_PATH} ${args}`, {
-      encoding: 'utf-8',
-      timeout: 5000,
-    });
-    return { stdout, exitCode: 0 };
-  } catch (error: unknown) {
-    if (
-      error &&
-      typeof error === 'object' &&
-      'status' in error &&
-      'stdout' in error
-    ) {
-      return {
-        stdout: (error as { stdout: string }).stdout || '',
-        exitCode: (error as { status: number }).status || 1,
-      };
-    }
-    throw error;
-  }
-}
-
 describe('CLI Global Options', () => {
   beforeAll(() => {
     // Ensure CLI is built before running tests

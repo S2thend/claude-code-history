@@ -28,7 +28,7 @@ function generateTestUUID(): string {
  */
 function createTestSession(
   projectPath: string,
-  messages: Array<{ type: string; content: string }>,
+  messages: { type: string; content: string }[],
   options?: { summary?: string }
 ): string {
   const sessionId = generateTestUUID();
@@ -257,7 +257,7 @@ describe('cch migrate', () => {
         { type: 'user', content: 'Mode shorthand test' },
       ]);
 
-      const { stdout, exitCode } = runCli(`migrate 0 -D "${destProject}" -m move`);
+      const { exitCode } = runCli(`migrate 0 -D "${destProject}" -m move`);
 
       expect(exitCode).toBe(0);
 
@@ -279,7 +279,7 @@ describe('cch migrate', () => {
       const sessionId2 = createTestSession(sourceProject, [{ type: 'user', content: 'Second session' }]);
 
       // Migrate both sessions by UUID to be deterministic
-      const { stdout, exitCode } = runCli(`migrate ${sessionId1},${sessionId2} --destination "${destProject}"`);
+      const { exitCode } = runCli(`migrate ${sessionId1},${sessionId2} --destination "${destProject}"`);
 
       expect(exitCode).toBe(0);
 
@@ -310,7 +310,7 @@ describe('cch migrate', () => {
       createTestSession(sourceProject, [{ type: 'user', content: 'Second' }]);
       createTestSession(sourceProject, [{ type: 'user', content: 'Third' }]);
 
-      const { stdout, exitCode } = runCli(`migrate --all --source "${sourceProject}" --destination "${destProject}"`);
+      const { exitCode } = runCli(`migrate --all --source "${sourceProject}" --destination "${destProject}"`);
 
       expect(exitCode).toBe(0);
 
@@ -374,7 +374,7 @@ describe('cch migrate', () => {
       createTestSession(sourceProject, [{ type: 'user', content: 'Valid session' }]);
 
       // Try to migrate both valid and invalid sessions
-      const { stdout, exitCode } = runCli(`migrate 0,999 -D "${destProject}"`);
+      const { stdout } = runCli(`migrate 0,999 -D "${destProject}"`);
 
       // Should succeed partially
       expect(stdout).toMatch(/1/); // At least one succeeded

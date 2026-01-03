@@ -11,7 +11,7 @@ import type { SearchMatch } from '../../lib/index.js';
  */
 function getProjectName(projectPath: string): string {
   const parts = projectPath.split(/[/\\]/);
-  return parts[parts.length - 1] || projectPath;
+  return parts[parts.length - 1] ?? projectPath;
 }
 
 /**

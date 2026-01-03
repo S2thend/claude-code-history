@@ -30,7 +30,7 @@ function generateTestUUID(): string {
 function createTestSession(
   projectPath: string,
   sessionLabel: string,
-  messages: Array<{ type: string; content: string }>,
+  messages: { type: string; content: string }[],
   options?: { summary?: string }
 ): string {
   const sessionId = generateTestUUID();
@@ -268,7 +268,7 @@ describe('cch export', () => {
       ], { summary: 'MD File Test' });
 
       const outputFile = join(TEST_OUTPUT_DIR, 'export.md');
-      const { stdout, exitCode } = runCli(`export 0 --format markdown --output "${outputFile}"`);
+      const { exitCode } = runCli(`export 0 --format markdown --output "${outputFile}"`);
 
       expect(exitCode).toBe(0);
       expect(existsSync(outputFile)).toBe(true);

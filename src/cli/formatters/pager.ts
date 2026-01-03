@@ -69,6 +69,10 @@ export async function outputWithPager(
       });
     } catch (error) {
       // Fallback to direct output if pager fails to spawn
+      // Log error to stderr for debugging (e.g., pager not found)
+      if (process.env.DEBUG) {
+        process.stderr.write(`Pager error: ${error instanceof Error ? error.message : error}\n`);
+      }
       process.stdout.write(content);
       if (!content.endsWith('\n')) {
         process.stdout.write('\n');

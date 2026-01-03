@@ -2,7 +2,7 @@
  * Unit tests for CLI configuration utilities
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   resolveConfig,
   toLibraryConfig,
@@ -18,7 +18,7 @@ describe('config utilities', () => {
     beforeEach(() => {
       // Reset environment
       process.env = { ...originalEnv };
-      delete process.env[ENV_VARS.DATA_PATH];
+      process.env[ENV_VARS.DATA_PATH] = undefined;
     });
 
     afterEach(() => {

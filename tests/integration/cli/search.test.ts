@@ -29,7 +29,7 @@ function generateTestUUID(): string {
 function createTestSession(
   projectPath: string,
   sessionLabel: string,
-  messages: Array<{ type: string; content: string }>,
+  messages: { type: string; content: string }[],
   options?: { summary?: string }
 ): string {
   const sessionId = generateTestUUID();

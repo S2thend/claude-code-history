@@ -49,7 +49,7 @@ export interface ResolvedCliConfig {
  */
 export function resolveConfig(opts: GlobalOptions): ResolvedCliConfig {
   const dataPath =
-    opts.dataPath || process.env[ENV_VARS.DATA_PATH] || getDefaultDataPath();
+    opts.dataPath ?? process.env[ENV_VARS.DATA_PATH] ?? getDefaultDataPath();
 
   return {
     dataPath,

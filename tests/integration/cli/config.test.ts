@@ -28,7 +28,7 @@ function generateTestUUID(): string {
  */
 function createTestSession(
   projectPath: string,
-  messages: Array<{ type: string; content: string }>,
+  messages: { type: string; content: string }[],
   options?: { summary?: string }
 ): string {
   const sessionId = generateTestUUID();
@@ -277,10 +277,9 @@ describe('custom data path configuration (T058-T060)', () => {
       const filePath = join(TEST_DATA_DIR, 'not-a-directory');
       writeFileSync(filePath, 'this is a file');
 
-      const { exitCode, stdout, stderr } = runCli('list', filePath);
+      const { exitCode } = runCli('list', filePath);
 
       expect(exitCode).not.toBe(0);
-      const output = stdout + stderr;
       // Should error (can't find sessions in a file)
       expect(exitCode).not.toBe(0);
     });
