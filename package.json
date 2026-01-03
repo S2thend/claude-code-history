@@ -1,6 +1,6 @@
 {
   "name": "claude-code-history",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "CLI and library for browsing, searching, exporting, and managing Claude Code chat history",
   "type": "module",
   "main": "./dist/lib/index.js",
@@ -45,7 +45,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/S2thend/claude-code-history.git"
+    "url": "https://github.com/S2thend/claude-code-history"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
