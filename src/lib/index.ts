@@ -52,7 +52,13 @@ export type {
   MigrateWorkspaceConfig,
   MigrateError,
   MigrateResult,
+
+  // Message Filtering
+  FilterableMessageType,
+  MessageFilterOptions,
 } from './types.js';
+
+export { VALID_FILTER_TYPES } from './types.js';
 
 // =============================================================================
 // Error Classes and Type Guards
@@ -71,7 +77,13 @@ export {
 // Session Functions
 // =============================================================================
 
-export { listSessions, getSession, getAgentSession } from './session.js';
+export {
+  listSessions,
+  getSession,
+  getAgentSession,
+  classifyMessage,
+  filterMessages,
+} from './session.js';
 
 // =============================================================================
 // Search Functions

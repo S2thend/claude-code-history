@@ -6,7 +6,18 @@
 
 import { readdir, stat } from 'fs/promises';
 import { join } from 'path';
-import type { LibraryConfig, SessionSummary, Session, Message, PaginatedResult } from './types.js';
+import type {
+  LibraryConfig,
+  SessionSummary,
+  Session,
+  Message,
+  PaginatedResult,
+  FilterableMessageType,
+  MessageFilterOptions,
+  UserMessage,
+  AssistantMessage,
+  ToolResultContent,
+} from './types.js';
 import { resolveConfig, paginate, createPagination, type ResolvedConfig } from './config.js';
 import {
   getProjectsPath,
@@ -406,4 +417,137 @@ export async function getAgentSession(agentId: string, config?: LibraryConfig): 
     agentIds: [],
     messages,
   };
+}
+
+// =============================================================================
+// Message Filtering
+// =============================================================================
+
+/**
+ * Classify a message into filterable types.
+ *
+ * @param message - Message to classify
+ * @returns Array of applicable filter types for this message
+ *
+ * @remarks
+ * A message can have multiple classifications (e.g., an assistant message
+ * with both text and tool_use content will return ['assistant', 'tool']).
+ *
+ * Returns empty array for non-displayable messages (summary, file-history-snapshot).
+ *
+ * @example
+ * ```typescript
+ * import { classifyMessage } from 'claude-code-history';
+ *
+ * const types = classifyMessage(message);
+ * // For user message: ['user']
+ * // For assistant with text + tool: ['assistant', 'tool']
+ * // For user with error result: ['error']
+ * ```
+ */
+export function classifyMessage(message: Message): FilterableMessageType[] {
+  const types: FilterableMessageType[] = [];
+
+  // Skip non-displayable message types
+  if (message.type === 'summary' || message.type === 'file-history-snapshot') {
+    return types;
+  }
+
+  if (message.type === 'user') {
+    const userMsg = message as UserMessage;
+
+    // Check if content is a string (regular user message)
+    if (typeof userMsg.content === 'string') {
+      types.push('user');
+    } else if (Array.isArray(userMsg.content)) {
+      // Check for error results in tool result content
+      const toolResults = userMsg.content as ToolResultContent[];
+      const hasError = toolResults.some((item) => item.type === 'tool_result' && item.is_error);
+
+      if (hasError) {
+        types.push('error');
+      }
+
+      // Only add 'user' if not purely tool results (tool results are shown inline with tool calls)
+      const isPurelyToolResults = toolResults.every((item) => item.type === 'tool_result');
+      if (!isPurelyToolResults) {
+        types.push('user');
+      }
+    }
+  }
+
+  if (message.type === 'assistant') {
+    const assistantMsg = message as AssistantMessage;
+
+    for (const item of assistantMsg.content) {
+      if (item.type === 'text') {
+        if (!types.includes('assistant')) {
+          types.push('assistant');
+        }
+      }
+      if (item.type === 'tool_use') {
+        if (!types.includes('tool')) {
+          types.push('tool');
+        }
+      }
+      if (item.type === 'thinking') {
+        if (!types.includes('thinking')) {
+          types.push('thinking');
+        }
+      }
+    }
+  }
+
+  return types;
+}
+
+/**
+ * Filter messages by type.
+ *
+ * @param messages - Array of messages to filter
+ * @param options - Filter options specifying which types to include
+ * @returns Filtered array of messages
+ *
+ * @remarks
+ * - If `options.only` is empty or undefined, returns all displayable messages
+ * - Messages with mixed content (e.g., text + tool_use) are included
+ *   if ANY content block matches the filter
+ * - Order and timestamps are preserved
+ * - Summary and file-history-snapshot messages are always excluded
+ *
+ * @example
+ * ```typescript
+ * import { filterMessages } from 'claude-code-history';
+ *
+ * // Filter to only user messages
+ * const userMessages = filterMessages(session.messages, { only: ['user'] });
+ *
+ * // Filter to tools and errors
+ * const toolsAndErrors = filterMessages(session.messages, { only: ['tool', 'error'] });
+ *
+ * // No filter (returns all displayable messages)
+ * const allMessages = filterMessages(session.messages, {});
+ * ```
+ */
+export function filterMessages(
+  messages: Message[],
+  options?: MessageFilterOptions
+): Message[] {
+  // First, filter out non-displayable messages (summary, file-history-snapshot)
+  const displayableMessages = messages.filter(
+    (m) => m.type === 'user' || m.type === 'assistant'
+  );
+
+  // If no filter specified or empty filter, return all displayable messages
+  if (!options?.only || options.only.length === 0) {
+    return displayableMessages;
+  }
+
+  // Filter messages based on classification
+  const filterTypes = options.only;
+  return displayableMessages.filter((message) => {
+    const messageTypes = classifyMessage(message);
+    // Include message if ANY of its types match the filter
+    return messageTypes.some((type) => filterTypes.includes(type));
+  });
 }
