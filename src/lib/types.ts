@@ -180,6 +180,44 @@ export interface ToolResultContent {
 }
 
 // =============================================================================
+// Message Filtering Types
+// =============================================================================
+
+/**
+ * Message types that can be filtered in session views.
+ *
+ * @remarks
+ * - `user`: User-authored messages (questions, prompts)
+ * - `assistant`: AI text responses (excludes tool calls and thinking)
+ * - `tool`: Tool invocations (Read, Write, Bash, etc.)
+ * - `thinking`: AI reasoning/thinking blocks
+ * - `error`: Tool results with errors
+ */
+export type FilterableMessageType = 'user' | 'assistant' | 'tool' | 'thinking' | 'error';
+
+/**
+ * Options for filtering messages in a session.
+ */
+export interface MessageFilterOptions {
+  /**
+   * Message types to include.
+   * Empty array or undefined means include all types.
+   */
+  only?: FilterableMessageType[];
+}
+
+/**
+ * Array of valid filter type strings for validation.
+ */
+export const VALID_FILTER_TYPES: readonly FilterableMessageType[] = [
+  'user',
+  'assistant',
+  'tool',
+  'thinking',
+  'error',
+] as const;
+
+// =============================================================================
 // Supporting Types
 // =============================================================================
 

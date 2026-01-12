@@ -15,7 +15,20 @@ import type {
   TextContent,
   ThinkingContent,
   ToolResultContent,
+  FilterableMessageType,
 } from '../../lib/index.js';
+
+/**
+ * Options for formatting session with filter applied
+ */
+export interface SessionFormatOptions {
+  /** Filtered messages to display (instead of session.messages) */
+  messages: Message[];
+  /** Filter types that were applied */
+  filter: FilterableMessageType[];
+  /** Total message count before filtering */
+  totalMessageCount: number;
+}
 
 /**
  * Map of tool_use_id to tool result content
@@ -245,13 +258,22 @@ function separator(): string {
 /**
  * Format session header
  */
-function formatSessionHeader(session: Session): string {
+function formatSessionHeader(
+  session: Session,
+  options?: SessionFormatOptions
+): string {
   const lines = [
     `Session: ${session.id}`,
     `Project: ${session.projectPath}`,
     `Started: ${formatDate(session.timestamp)}`,
-    `Messages: ${session.messageCount}`,
   ];
+
+  // Show filtered message count if filter is applied
+  if (options) {
+    lines.push(`Messages: ${options.messages.length} (filtered from ${options.totalMessageCount})`);
+  } else {
+    lines.push(`Messages: ${session.messageCount}`);
+  }
 
   if (session.gitBranch) {
     lines.push(`Branch: ${session.gitBranch}`);
@@ -272,21 +294,37 @@ function formatSessionHeader(session: Session): string {
  * content is shown inline with the tool call.
  *
  * @param session - Full session object with messages
+ * @param options - Optional format options for filtered output
  * @returns Formatted session string
  */
-export function formatSession(session: Session): string {
+export function formatSession(
+  session: Session,
+  options?: SessionFormatOptions
+): string {
   const parts: string[] = [];
 
-  // Build tool result map for pairing
+  // Use filtered messages if provided, otherwise use session messages
+  const messagesToFormat = options?.messages ?? session.messages;
+
+  // Build tool result map for pairing (use all session messages for complete context)
   const toolResults = buildToolResultMap(session.messages);
 
   // Header
-  parts.push(formatSessionHeader(session));
+  parts.push(formatSessionHeader(session, options));
   parts.push('');
   parts.push(separator());
 
+  // Handle empty filtered results
+  if (options && messagesToFormat.length === 0) {
+    parts.push('');
+    parts.push(`No messages match filter: ${options.filter.join(', ')}`);
+    parts.push('');
+    parts.push(separator());
+    return parts.join('\n');
+  }
+
   // Messages
-  for (const msg of session.messages) {
+  for (const msg of messagesToFormat) {
     // Skip summary and file-history-snapshot messages
     if (msg.type !== 'user' && msg.type !== 'assistant') {
       continue;
@@ -314,9 +352,32 @@ export function formatSession(session: Session): string {
 }
 
 /**
- * Format session for JSON output
- * Returns the session as-is since it's already structured
+ * JSON output type for filtered session
  */
-export function formatSessionForJson(session: Session): Session {
-  return session;
+export interface FilteredSessionJson extends Omit<Session, 'messages'> {
+  messages: Message[];
+  filter?: FilterableMessageType[];
+  totalMessageCount?: number;
+}
+
+/**
+ * Format session for JSON output
+ * Returns the session with optional filter metadata
+ */
+export function formatSessionForJson(
+  session: Session,
+  options?: SessionFormatOptions
+): Session | FilteredSessionJson {
+  if (!options) {
+    return session;
+  }
+
+  // Return session with filtered messages and metadata
+  return {
+    ...session,
+    messages: options.messages,
+    messageCount: options.messages.length,
+    filter: options.filter,
+    totalMessageCount: options.totalMessageCount,
+  };
 }
