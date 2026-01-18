@@ -140,7 +140,8 @@ describe('cch list', () => {
       expect(exitCode).toBe(0);
       expect(stdout).toContain('IDX');
       expect(stdout).toContain('TIMESTAMP');
-      expect(stdout).toContain('PROJECT');
+      expect(stdout).toContain('PATH');
+      expect(stdout).toContain('BRANCH');
       expect(stdout).toContain('SUMMARY');
       expect(stdout).toContain('MSGS');
     });

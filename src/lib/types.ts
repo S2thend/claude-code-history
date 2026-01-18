@@ -42,6 +42,9 @@ export interface SessionSummary {
   /** Decoded project path (e.g., /Users/name/project) */
   projectPath: string;
 
+  /** Git branch at session start */
+  gitBranch: string | null;
+
   /** Human-readable session title */
   summary: string | null;
 

@@ -175,6 +175,7 @@ async function buildSessionSummary(
   return {
     id: info.id,
     projectPath: info.projectPath,
+    gitBranch: metadata.gitBranch,
     summary: metadata.summary,
     timestamp: metadata.firstTimestamp ?? info.modifiedTime,
     lastActivityAt: metadata.lastTimestamp ?? info.modifiedTime,

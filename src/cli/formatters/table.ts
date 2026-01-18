@@ -12,19 +12,32 @@ import type { SessionSummary } from '../../lib/index.js';
 const COLUMN_WIDTHS = {
   idx: 4,
   timestamp: 20,
-  project: 28,
-  summary: 40,
+  path: 30,
+  branch: 15,
+  summary: 30,
   msgs: 5,
 } as const;
 
 /**
- * Truncate a string to a maximum length, adding ellipsis if needed
+ * Truncate a string to a maximum length, adding ellipsis if needed (right truncation)
  */
 function truncate(str: string, maxLength: number): string {
   if (str.length <= maxLength) {
     return str;
   }
   return str.slice(0, maxLength - 3) + '...';
+}
+
+/**
+ * Truncate a path from the left, preserving the end (project name)
+ * Uses … (ellipsis character) as truncation indicator
+ */
+function truncatePath(path: string, maxLength: number): string {
+  if (path.length <= maxLength) {
+    return path;
+  }
+  // Keep the end of the path (project name is most important)
+  return '…' + path.slice(-(maxLength - 1));
 }
 
 /**
@@ -69,15 +82,6 @@ function getDisplaySummary(session: SessionSummary): string {
 }
 
 /**
- * Extract just the project name from a full path
- */
-function getProjectName(projectPath: string): string {
-  // Get the last component of the path
-  const parts = projectPath.split(/[/\\]/);
-  return parts[parts.length - 1] ?? projectPath;
-}
-
-/**
  * Format session list as a table
  *
  * @param sessions - Array of session summaries
@@ -98,7 +102,8 @@ export function formatSessionTable(
   const header = [
     padLeft('IDX', COLUMN_WIDTHS.idx),
     padRight('TIMESTAMP', COLUMN_WIDTHS.timestamp),
-    padRight('PROJECT', COLUMN_WIDTHS.project),
+    padRight('PATH', COLUMN_WIDTHS.path),
+    padRight('BRANCH', COLUMN_WIDTHS.branch),
     padRight('SUMMARY', COLUMN_WIDTHS.summary),
     padLeft('MSGS', COLUMN_WIDTHS.msgs),
   ].join('  ');
@@ -109,7 +114,8 @@ export function formatSessionTable(
   const separator = [
     '─'.repeat(COLUMN_WIDTHS.idx),
     '─'.repeat(COLUMN_WIDTHS.timestamp),
-    '─'.repeat(COLUMN_WIDTHS.project),
+    '─'.repeat(COLUMN_WIDTHS.path),
+    '─'.repeat(COLUMN_WIDTHS.branch),
     '─'.repeat(COLUMN_WIDTHS.summary),
     '─'.repeat(COLUMN_WIDTHS.msgs),
   ].join('  ');
@@ -124,8 +130,12 @@ export function formatSessionTable(
       padLeft(String(displayIndex), COLUMN_WIDTHS.idx),
       padRight(formatDate(session.timestamp), COLUMN_WIDTHS.timestamp),
       padRight(
-        truncate(getProjectName(session.projectPath), COLUMN_WIDTHS.project),
-        COLUMN_WIDTHS.project
+        truncatePath(session.projectPath, COLUMN_WIDTHS.path),
+        COLUMN_WIDTHS.path
+      ),
+      padRight(
+        truncate(session.gitBranch ?? '-', COLUMN_WIDTHS.branch),
+        COLUMN_WIDTHS.branch
       ),
       padRight(
         truncate(getDisplaySummary(session), COLUMN_WIDTHS.summary),
