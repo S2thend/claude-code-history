@@ -10,6 +10,7 @@ function createMockSession(overrides: Partial<SessionSummary> = {}): SessionSumm
   return {
     id: 'test-uuid-1234',
     projectPath: '/Users/dev/my-project',
+    gitBranch: 'main',
     summary: 'Test session summary',
     timestamp: new Date('2025-01-15T10:30:00Z'),
     lastActivityAt: new Date('2025-01-15T11:00:00Z'),
@@ -31,7 +32,8 @@ describe('formatSessionTable', () => {
 
     expect(result).toContain('IDX');
     expect(result).toContain('TIMESTAMP');
-    expect(result).toContain('PROJECT');
+    expect(result).toContain('PATH');
+    expect(result).toContain('BRANCH');
     expect(result).toContain('SUMMARY');
     expect(result).toContain('MSGS');
     expect(result).toContain('─');
@@ -77,13 +79,31 @@ describe('formatSessionTable', () => {
     expect(result).not.toContain(longSummary);
   });
 
-  it('should truncate long project paths', () => {
+  it('should truncate long project paths from the left', () => {
     const longPath = '/Users/developer/very/deeply/nested/project/path/here';
     const sessions = [createMockSession({ projectPath: longPath })];
     const result = formatSessionTable(sessions);
 
-    // Should only show the project name (last segment)
+    // Should show truncated path with ellipsis at start, preserving the end
+    expect(result).toContain('…');
     expect(result).toContain('here');
+  });
+
+  it('should display git branch in BRANCH column', () => {
+    const sessions = [createMockSession({ gitBranch: 'feature/test' })];
+    const result = formatSessionTable(sessions);
+
+    expect(result).toContain('feature/test');
+  });
+
+  it('should display dash for null git branch', () => {
+    const sessions = [createMockSession({ gitBranch: null })];
+    const result = formatSessionTable(sessions);
+
+    // The row should contain a dash for the branch
+    const lines = result.split('\n');
+    const dataRow = lines[2];
+    expect(dataRow).toContain('-');
   });
 
   it('should show message count', () => {
@@ -125,10 +145,11 @@ describe('formatSessionsForJson', () => {
     expect(result[0].index).toBe(5);
   });
 
-  it('should preserve all session properties', () => {
+  it('should preserve all session properties including gitBranch', () => {
     const session = createMockSession({
       id: 'test-id',
       projectPath: '/test/path',
+      gitBranch: 'develop',
       summary: 'Test',
       messageCount: 10,
     });
@@ -136,7 +157,15 @@ describe('formatSessionsForJson', () => {
 
     expect(result[0].id).toBe('test-id');
     expect(result[0].projectPath).toBe('/test/path');
+    expect(result[0].gitBranch).toBe('develop');
     expect(result[0].summary).toBe('Test');
     expect(result[0].messageCount).toBe(10);
+  });
+
+  it('should include null gitBranch in JSON output', () => {
+    const session = createMockSession({ gitBranch: null });
+    const result = formatSessionsForJson([session]);
+
+    expect(result[0].gitBranch).toBeNull();
   });
 });
