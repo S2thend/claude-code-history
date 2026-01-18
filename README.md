@@ -1,6 +1,14 @@
 # Claude Code History
 
-A CLI tool and TypeScript library for browsing, searching, exporting, and managing your Claude Code conversation history.
+[![npm version](https://img.shields.io/npm/v/claude-code-history.svg)](https://www.npmjs.com/package/claude-code-history)
+[![npm downloads](https://img.shields.io/npm/dm/claude-code-history.svg)](https://www.npmjs.com/package/claude-code-history)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B-green.svg)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0%2B-blue.svg)](https://www.typescriptlang.org/)
+
+**The ultimate open-source tool for browsing, searching, exporting, and backing up your Claude Code chat history.**
+
+A POSIX-style CLI tool that does one thing well: access your Claude Code chat history. Built on Unix philosophy—simple, composable, and focused.
 
 ## Features
 
@@ -47,13 +55,11 @@ cch list --json
 
 **Output:**
 ```
-┌───────┬─────────────────────┬─────────────────────────────────┬─────────────────────────────────────────────┬──────────┐
-│ Index │ Timestamp           │ Project                         │ Summary                                     │ Messages │
-├───────┼─────────────────────┼─────────────────────────────────┼─────────────────────────────────────────────┼──────────┤
-│ 0     │ 2024-12-31 15:30:22 │ /Users/dev/my-project           │ Implement user authentication               │ 45       │
-│ 1     │ 2024-12-31 14:15:10 │ /Users/dev/my-project           │ Fix database connection issue               │ 23       │
-│ 2     │ 2024-12-30 09:45:33 │ /Users/dev/other-project        │ Add unit tests for API endpoints            │ 67       │
-└───────┴─────────────────────┴─────────────────────────────────┴─────────────────────────────────────────────┴──────────┘
+ IDX  TIMESTAMP             PATH                            BRANCH           SUMMARY                          MSGS
+────  ────────────────────  ──────────────────────────────  ───────────────  ──────────────────────────────  ─────
+   0  2024-12-31 15:30:22   /Users/dev/my-project           main             Implement user authentication      45
+   1  2024-12-31 14:15:10   /Users/dev/my-project           feature/auth     Fix database connection issue      23
+   2  2024-12-30 09:45:33   …/dev/other-project             develop          Add unit tests for API endp...     67
 ```
 
 ### View Session
