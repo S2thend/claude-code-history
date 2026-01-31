@@ -5,7 +5,15 @@
  */
 
 import type { Command } from 'commander';
-import { listSessions, isDataNotFoundError } from '../../lib/index.js';
+import {
+  listSessions,
+  getSession,
+  isDataNotFoundError,
+  computeTokenStats,
+  createEmptyStats,
+  addStats,
+  type AggregateTokenStats,
+} from '../../lib/index.js';
 import {
   type GlobalOptions,
   resolveConfig,
@@ -19,7 +27,11 @@ import {
   formatPaginationHint,
   toPaginationInfo,
 } from '../utils/output.js';
-import { formatSessionTable, formatSessionsForJson } from '../formatters/table.js';
+import {
+  formatSessionTable,
+  formatSessionsForJson,
+  formatAggregateStats,
+} from '../formatters/table.js';
 import { outputWithPager } from '../formatters/pager.js';
 
 /**
@@ -29,6 +41,7 @@ interface ListOptions extends GlobalOptions {
   workspace?: string;
   limit: string;
   offset: string;
+  stats?: boolean;
 }
 
 /**
@@ -48,11 +61,26 @@ async function executeList(options: ListOptions): Promise<void> {
   try {
     const result = await listSessions(libConfig);
 
+    // Compute aggregate token stats if --stats flag is set
+    let aggregateStats: AggregateTokenStats | undefined;
+    if (options.stats) {
+      aggregateStats = createEmptyStats();
+      for (const summary of result.data) {
+        const session = await getSession(summary.id, libConfig);
+        const sessionStats = computeTokenStats(session.messages);
+        aggregateStats = addStats(aggregateStats, sessionStats);
+      }
+    }
+
     if (options.json) {
       // JSON output
       const jsonData = formatSessionsForJson(result.data, offset);
       const commandResult = successResult(jsonData, result.pagination);
-      output(commandResult, true);
+      // Add statistics as sibling to data if --stats flag is set
+      const jsonOutput = aggregateStats
+        ? { ...commandResult, statistics: aggregateStats }
+        : commandResult;
+      output(jsonOutput, true);
     } else {
       // Human-readable output
       if (result.data.length === 0) {
@@ -69,7 +97,10 @@ async function executeList(options: ListOptions): Promise<void> {
         toPaginationInfo(result.pagination),
         'sessions'
       );
-      const fullOutput = tableOutput + paginationHint;
+
+      // Add stats summary if --stats flag is set
+      const statsOutput = aggregateStats ? '\n' + formatAggregateStats(aggregateStats) : '';
+      const fullOutput = tableOutput + paginationHint + statsOutput;
 
       await outputWithPager(fullOutput, options.full);
     }
@@ -98,6 +129,7 @@ export function registerListCommand(program: Command): void {
     .option('-w, --workspace <path>', 'Filter by workspace/project path')
     .option('-l, --limit <number>', 'Maximum number of sessions to display', '50')
     .option('-o, --offset <number>', 'Number of sessions to skip', '0')
+    .option('-s, --stats', 'Show aggregate token statistics')
     .action(async (cmdOptions: Omit<ListOptions, keyof GlobalOptions>) => {
       const globalOptions = program.opts() as GlobalOptions;
       const options: ListOptions = { ...globalOptions, ...cmdOptions };

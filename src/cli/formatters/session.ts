@@ -16,6 +16,7 @@ import type {
   ThinkingContent,
   ToolResultContent,
   FilterableMessageType,
+  AggregateTokenStats,
 } from '../../lib/index.js';
 
 /**
@@ -28,6 +29,8 @@ export interface SessionFormatOptions {
   filter: FilterableMessageType[];
   /** Total message count before filtering */
   totalMessageCount: number;
+  /** Token statistics to display as footer */
+  tokenStats?: AggregateTokenStats;
 }
 
 /**
@@ -348,7 +351,35 @@ export function formatSession(
     parts.push(separator());
   }
 
+  // Add token statistics footer if provided
+  if (options?.tokenStats) {
+    parts.push('');
+    parts.push(formatTokenSummary(options.tokenStats));
+  }
+
   return parts.join('\n');
+}
+
+/**
+ * Format token statistics summary as a footer.
+ * Uses toLocaleString() for locale-appropriate number formatting per FR-005.
+ *
+ * @param stats - Aggregated token statistics
+ * @returns Formatted token summary string
+ */
+export function formatTokenSummary(stats: AggregateTokenStats): string {
+  const lines = [
+    separator(),
+    'Token Usage Summary',
+    `  Input tokens:          ${stats.inputTokens.toLocaleString()}`,
+    `  Output tokens:         ${stats.outputTokens.toLocaleString()}`,
+    `  Cache read tokens:     ${stats.cacheReadInputTokens.toLocaleString()}`,
+    `  Cache creation tokens: ${stats.cacheCreationInputTokens.toLocaleString()}`,
+    `  Total tokens:          ${stats.totalTokens.toLocaleString()}`,
+    separator(),
+  ];
+
+  return lines.join('\n');
 }
 
 /**
@@ -358,11 +389,12 @@ export interface FilteredSessionJson extends Omit<Session, 'messages'> {
   messages: Message[];
   filter?: FilterableMessageType[];
   totalMessageCount?: number;
+  tokenStats?: AggregateTokenStats;
 }
 
 /**
  * Format session for JSON output
- * Returns the session with optional filter metadata
+ * Returns the session with optional filter metadata and token statistics
  */
 export function formatSessionForJson(
   session: Session,
@@ -372,12 +404,13 @@ export function formatSessionForJson(
     return session;
   }
 
-  // Return session with filtered messages and metadata
+  // Return session with filtered messages, metadata, and token statistics
   return {
     ...session,
     messages: options.messages,
     messageCount: options.messages.length,
     filter: options.filter,
     totalMessageCount: options.totalMessageCount,
+    tokenStats: options.tokenStats,
   };
 }

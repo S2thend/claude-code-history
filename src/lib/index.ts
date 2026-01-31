@@ -37,6 +37,9 @@ export type {
 
   // Supporting types
   TokenUsage,
+  AggregateTokenStats,
+  SessionWithStats,
+  ListStatsResult,
   FileSnapshot,
   FileBackup,
 
@@ -116,3 +119,9 @@ export { migrateSession, migrateWorkspace } from './migrate.js';
 // =============================================================================
 
 export { getDefaultDataPath, getProjectsPath } from './platform.js';
+
+// =============================================================================
+// Token Statistics Functions
+// =============================================================================
+
+export { computeTokenStats, createEmptyStats, addStats } from './stats.js';

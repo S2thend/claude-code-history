@@ -14,6 +14,7 @@ A POSIX-style CLI tool that does one thing well: access your Claude Code chat hi
 
 - **List Sessions** - View all your Claude Code sessions with summaries, timestamps, and message counts
 - **View Conversations** - Read full session content with formatted messages and tool calls
+- **Token Statistics** - View complete token usage breakdown (input, output, cache read, cache creation) per session or aggregated across sessions
 - **Search** - Find specific content across all sessions or within a single session
 - **Export** - Save sessions to JSON or Markdown format
 - **Migrate** - Copy or move sessions between workspaces with automatic path rewriting
@@ -49,6 +50,9 @@ cch list --workspace /path/to/project
 # Paginate results
 cch list --limit 10 --offset 20
 
+# Show aggregate token statistics
+cch list --stats
+
 # Output as JSON
 cch list --json
 ```
@@ -60,6 +64,22 @@ cch list --json
    0  2024-12-31 15:30:22   /Users/dev/my-project           main             Implement user authentication      45
    1  2024-12-31 14:15:10   /Users/dev/my-project           feature/auth     Fix database connection issue      23
    2  2024-12-30 09:45:33   …/dev/other-project             develop          Add unit tests for API endp...     67
+```
+
+**With `--stats` flag:**
+```
+ IDX  TIMESTAMP             PATH                            BRANCH           SUMMARY                          MSGS
+────  ────────────────────  ──────────────────────────────  ───────────────  ──────────────────────────────  ─────
+   0  2024-12-31 15:30:22   /Users/dev/my-project           main             Implement user authentication      45
+   1  2024-12-31 14:15:10   /Users/dev/my-project           feature/auth     Fix database connection issue      23
+────────────────────────────────────────────────────────────────────────────────
+Aggregate Token Statistics
+  Input tokens:          1,234
+  Output tokens:         5,678
+  Cache read tokens:     45,000
+  Cache creation tokens: 12,000
+  Total tokens:          63,912
+────────────────────────────────────────────────────────────────────────────────
 ```
 
 ### View Session
@@ -110,6 +130,15 @@ I'll help you implement JWT authentication. Let me start by...
 ```typescript
 export function authenticate() { ... }
 ```
+
+────────────────────────────────────────────────────────────────────────────────
+Token Usage Summary
+  Input tokens:          500
+  Output tokens:         1,200
+  Cache read tokens:     15,000
+  Cache creation tokens: 3,500
+  Total tokens:          20,200
+────────────────────────────────────────────────────────────────────────────────
 ```
 
 ### Search Sessions
@@ -226,6 +255,7 @@ import {
   searchSessions,
   exportSession,
   migrateSession,
+  computeTokenStats,
 } from 'claude-code-history';
 
 // List all sessions
@@ -258,6 +288,17 @@ console.log(session.messages);
 //   { type: 'assistant', content: [...], timestamp: '...' },
 //   ...
 // ]
+
+// Get token statistics for a session
+const tokenStats = computeTokenStats(session.messages);
+console.log(tokenStats);
+// {
+//   inputTokens: 500,
+//   outputTokens: 1200,
+//   cacheReadInputTokens: 15000,
+//   cacheCreationInputTokens: 3500,
+//   totalTokens: 20200
+// }
 
 // Search across sessions
 const matches = await searchSessions('authentication', {
@@ -312,6 +353,8 @@ import type {
   LibraryConfig,
   Pagination,
   PaginatedResult,
+  TokenUsage,
+  AggregateTokenStats,
 } from 'claude-code-history';
 ```
 
@@ -330,6 +373,7 @@ claude-code-history/
 │       ├── search.ts           # Search functionality
 │       ├── export.ts           # Export to JSON/Markdown
 │       ├── migrate.ts          # Session migration
+│       ├── stats.ts            # Token statistics aggregation
 │       └── types.ts            # TypeScript type definitions
 ├── tests/
 │   ├── integration/            # Integration tests
