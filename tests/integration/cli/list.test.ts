@@ -57,7 +57,7 @@ function createTestSession(
           model: 'claude-3-sonnet',
           content: [{ type: 'text', text: msg.content }],
           stop_reason: 'end_turn',
-          usage: { input_tokens: 100, output_tokens: 200 },
+          usage: { input_tokens: 100, output_tokens: 200, cache_creation_input_tokens: 500, cache_read_input_tokens: 5000 },
         },
   }));
 
@@ -295,6 +295,92 @@ describe('cch list', () => {
       const { exitCode } = runCli('list', '/nonexistent/path');
 
       expect(exitCode).not.toBe(0);
+    });
+  });
+
+  describe('--stats flag (T029)', () => {
+    it('should display aggregate token statistics with --stats flag', () => {
+      createTestSession('/Users/dev/project1', 'session-1', [
+        { type: 'user', content: 'Hello' },
+        { type: 'assistant', content: 'Hi there!' },
+      ]);
+
+      const { stdout, exitCode } = runCli('list --stats --full');
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Aggregate Token Statistics');
+      expect(stdout).toContain('Input tokens:');
+      expect(stdout).toContain('Output tokens:');
+      expect(stdout).toContain('Cache read tokens:');
+      expect(stdout).toContain('Cache creation tokens:');
+      expect(stdout).toContain('Total tokens:');
+    });
+
+    it('should aggregate tokens across multiple sessions with --stats', () => {
+      createTestSession('/Users/dev/project1', 'session-1', [
+        { type: 'user', content: 'First' },
+        { type: 'assistant', content: 'Response 1' },
+      ]);
+      createTestSession('/Users/dev/project2', 'session-2', [
+        { type: 'user', content: 'Second' },
+        { type: 'assistant', content: 'Response 2' },
+      ]);
+
+      const { stdout, exitCode } = runCli('list --stats --json');
+
+      expect(exitCode).toBe(0);
+      const json = JSON.parse(stdout);
+      expect(json.statistics).toBeDefined();
+      // 2 sessions × (100 input + 200 output + 500 cache_create + 5000 cache_read)
+      expect(json.statistics.inputTokens).toBe(200);
+      expect(json.statistics.outputTokens).toBe(400);
+      expect(json.statistics.cacheCreationInputTokens).toBe(1000);
+      expect(json.statistics.cacheReadInputTokens).toBe(10000);
+      expect(json.statistics.totalTokens).toBe(11600);
+    });
+
+    it('should include statistics object in JSON output with --stats --json', () => {
+      createTestSession('/Users/dev/project1', 'session-1', [
+        { type: 'user', content: 'Test' },
+        { type: 'assistant', content: 'Response' },
+      ]);
+
+      const { stdout, exitCode } = runCli('list --stats --json');
+
+      expect(exitCode).toBe(0);
+      const json = JSON.parse(stdout);
+      expect(json.success).toBe(true);
+      expect(json.statistics).toBeDefined();
+      expect(typeof json.statistics.inputTokens).toBe('number');
+      expect(typeof json.statistics.outputTokens).toBe('number');
+      expect(typeof json.statistics.cacheCreationInputTokens).toBe('number');
+      expect(typeof json.statistics.cacheReadInputTokens).toBe('number');
+      expect(typeof json.statistics.totalTokens).toBe('number');
+    });
+
+    it('should not show statistics without --stats flag', () => {
+      createTestSession('/Users/dev/project1', 'session-1', [
+        { type: 'user', content: 'Test' },
+        { type: 'assistant', content: 'Response' },
+      ]);
+
+      const { stdout, exitCode } = runCli('list --full');
+
+      expect(exitCode).toBe(0);
+      expect(stdout).not.toContain('Aggregate Token Statistics');
+    });
+
+    it('should not include statistics in JSON output without --stats flag', () => {
+      createTestSession('/Users/dev/project1', 'session-1', [
+        { type: 'user', content: 'Test' },
+        { type: 'assistant', content: 'Response' },
+      ]);
+
+      const { stdout, exitCode } = runCli('list --json');
+
+      expect(exitCode).toBe(0);
+      const json = JSON.parse(stdout);
+      expect(json.statistics).toBeUndefined();
     });
   });
 });

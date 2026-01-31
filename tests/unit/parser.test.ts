@@ -159,6 +159,29 @@ describe('transformEntry', () => {
     }
   });
 
+  it('should handle assistant message with missing optional fields', () => {
+    const entry = {
+      type: 'assistant',
+      uuid: 'msg-002',
+      parentUuid: 'msg-001',
+      timestamp: '2025-12-01T10:00:15.000Z',
+      message: {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Hello!' }],
+        // No model, stop_reason, or usage
+      },
+    };
+
+    const result = transformEntry(entry);
+
+    expect(result?.type).toBe('assistant');
+    if (result?.type === 'assistant') {
+      expect(result.model).toBe('');
+      expect(result.stopReason).toBe(null);
+      expect(result.usage.inputTokens).toBe(0);
+    }
+  });
+
   it('should transform summary entry', () => {
     const entry = {
       type: 'summary',
@@ -175,6 +198,23 @@ describe('transformEntry', () => {
     if (result?.type === 'summary') {
       expect(result.summary).toBe('Test session summary');
       expect(result.leafUuid).toBe('msg-003');
+    }
+  });
+
+  it('should handle summary entry with missing fields', () => {
+    const entry = {
+      type: 'summary',
+      uuid: '',
+      parentUuid: null,
+      // No summary or leafUuid
+    };
+
+    const result = transformEntry(entry);
+
+    expect(result?.type).toBe('summary');
+    if (result?.type === 'summary') {
+      expect(result.summary).toBe('');
+      expect(result.leafUuid).toBe('');
     }
   });
 
@@ -268,6 +308,101 @@ describe('transformEntry', () => {
     }
   });
 
+  it('should handle assistant content as string (rare case)', () => {
+    const entry = {
+      type: 'assistant',
+      uuid: 'msg-001',
+      parentUuid: null,
+      timestamp: '2025-12-01T10:00:00.000Z',
+      message: {
+        model: 'claude-opus-4-5-20251101',
+        role: 'assistant',
+        content: 'Just a string response',
+        stop_reason: 'end_turn',
+      },
+    };
+
+    const result = transformEntry(entry);
+    expect(result?.type).toBe('assistant');
+    if (result?.type === 'assistant') {
+      expect(result.content).toHaveLength(1);
+      expect(result.content[0].type).toBe('text');
+      if (result.content[0].type === 'text') {
+        expect(result.content[0].text).toBe('Just a string response');
+      }
+    }
+  });
+
+  it('should handle assistant content with non-object array items', () => {
+    const entry = {
+      type: 'assistant',
+      uuid: 'msg-001',
+      parentUuid: null,
+      timestamp: '2025-12-01T10:00:00.000Z',
+      message: {
+        model: 'claude-opus-4-5-20251101',
+        role: 'assistant',
+        content: ['string item', null, { type: 'text', text: 'valid' }],
+        stop_reason: 'end_turn',
+      },
+    };
+
+    const result = transformEntry(entry);
+    expect(result?.type).toBe('assistant');
+    if (result?.type === 'assistant') {
+      // Only the valid text item should be included
+      expect(result.content).toHaveLength(1);
+      expect(result.content[0].type).toBe('text');
+    }
+  });
+
+  it('should handle assistant content with unknown type', () => {
+    const entry = {
+      type: 'assistant',
+      uuid: 'msg-001',
+      parentUuid: null,
+      timestamp: '2025-12-01T10:00:00.000Z',
+      message: {
+        model: 'claude-opus-4-5-20251101',
+        role: 'assistant',
+        content: [
+          { type: 'unknown_type', data: 'some data' },
+          { type: 'text', text: 'valid text' },
+        ],
+        stop_reason: 'end_turn',
+      },
+    };
+
+    const result = transformEntry(entry);
+    expect(result?.type).toBe('assistant');
+    if (result?.type === 'assistant') {
+      // Only the valid text item should be included
+      expect(result.content).toHaveLength(1);
+      expect(result.content[0].type).toBe('text');
+    }
+  });
+
+  it('should handle assistant with no content', () => {
+    const entry = {
+      type: 'assistant',
+      uuid: 'msg-001',
+      parentUuid: null,
+      timestamp: '2025-12-01T10:00:00.000Z',
+      message: {
+        model: 'claude-opus-4-5-20251101',
+        role: 'assistant',
+        content: null,
+        stop_reason: 'end_turn',
+      },
+    };
+
+    const result = transformEntry(entry);
+    expect(result?.type).toBe('assistant');
+    if (result?.type === 'assistant') {
+      expect(result.content).toEqual([]);
+    }
+  });
+
   it('should return null for unknown entry type', () => {
     const entry = {
       type: 'unknown-type',
@@ -276,6 +411,166 @@ describe('transformEntry', () => {
 
     const result = transformEntry(entry);
     expect(result).toBe(null);
+  });
+
+  it('should handle user content with non-object array items', () => {
+    const entry = {
+      type: 'user',
+      uuid: 'msg-001',
+      parentUuid: null,
+      timestamp: '2025-12-01T10:00:00.000Z',
+      cwd: '/test',
+      message: {
+        role: 'user',
+        content: ['string item', null, 123],
+      },
+    };
+
+    const result = transformEntry(entry);
+    expect(result?.type).toBe('user');
+    if (result?.type === 'user') {
+      // Non-object items should be filtered out
+      expect(result.content).toEqual([]);
+    }
+  });
+
+  it('should handle user content with array items that are not tool_result type', () => {
+    const entry = {
+      type: 'user',
+      uuid: 'msg-001',
+      parentUuid: null,
+      timestamp: '2025-12-01T10:00:00.000Z',
+      cwd: '/test',
+      message: {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'not a tool result' },
+          { type: 'tool_result', tool_use_id: 'toolu_001', content: 'result' },
+        ],
+      },
+    };
+
+    const result = transformEntry(entry);
+    expect(result?.type).toBe('user');
+    if (result?.type === 'user') {
+      // Only tool_result items should be included
+      const content = result.content as { type: string }[];
+      expect(content.length).toBe(1);
+      expect(content[0].type).toBe('tool_result');
+    }
+  });
+
+  it('should handle user content that is neither string nor array', () => {
+    const entry = {
+      type: 'user',
+      uuid: 'msg-001',
+      parentUuid: null,
+      timestamp: '2025-12-01T10:00:00.000Z',
+      cwd: '/test',
+      message: {
+        role: 'user',
+        content: { unexpected: 'object' },
+      },
+    };
+
+    const result = transformEntry(entry);
+    expect(result?.type).toBe('user');
+    if (result?.type === 'user') {
+      // Should return empty string for unexpected content type
+      expect(result.content).toBe('');
+    }
+  });
+
+  it('should return null for file-history-snapshot without snapshot', () => {
+    const entry = {
+      type: 'file-history-snapshot',
+      uuid: 'snapshot-001',
+      parentUuid: null,
+      timestamp: '2025-12-01T10:00:00.000Z',
+      messageId: 'msg-001',
+      // No snapshot field
+    };
+
+    const result = transformEntry(entry);
+    expect(result).toBe(null);
+  });
+
+  it('should transform file-history-snapshot with valid snapshot', () => {
+    const entry = {
+      type: 'file-history-snapshot',
+      uuid: 'snapshot-001',
+      parentUuid: null,
+      timestamp: '2025-12-01T10:00:00.000Z',
+      messageId: 'msg-001',
+      snapshot: {
+        messageId: 'msg-001',
+        timestamp: '2025-12-01T10:00:00.000Z',
+        trackedFileBackups: {
+          '/test/file.ts': {
+            backupFileName: 'file.ts.backup',
+            version: 1,
+            backupTime: '2025-12-01T10:00:00.000Z',
+          },
+        },
+      },
+    };
+
+    const result = transformEntry(entry);
+    expect(result?.type).toBe('file-history-snapshot');
+    if (result?.type === 'file-history-snapshot') {
+      expect(result.messageId).toBe('msg-001');
+      expect(result.snapshot).toBeDefined();
+      expect(result.snapshot.trackedFileBackups).toHaveProperty('/test/file.ts');
+    }
+  });
+
+  it('should handle file-history-snapshot with missing messageId', () => {
+    const entry = {
+      type: 'file-history-snapshot',
+      uuid: 'snapshot-001',
+      parentUuid: null,
+      timestamp: '2025-12-01T10:00:00.000Z',
+      // No messageId
+      snapshot: {
+        messageId: 'msg-001',
+        timestamp: '2025-12-01T10:00:00.000Z',
+        trackedFileBackups: {},
+      },
+    };
+
+    const result = transformEntry(entry);
+    expect(result?.type).toBe('file-history-snapshot');
+    if (result?.type === 'file-history-snapshot') {
+      expect(result.messageId).toBe('');
+    }
+  });
+
+  it('should handle tool result with is_error flag', () => {
+    const entry = {
+      type: 'user',
+      uuid: 'msg-001',
+      parentUuid: null,
+      timestamp: '2025-12-01T10:00:00.000Z',
+      cwd: '/test',
+      message: {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: 'toolu_001',
+            content: 'Error occurred',
+            is_error: true,
+          },
+        ],
+      },
+    };
+
+    const result = transformEntry(entry);
+    expect(result?.type).toBe('user');
+    if (result?.type === 'user') {
+      const content = result.content as { type: string; is_error?: boolean }[];
+      expect(content[0].is_error).toBe(true);
+    }
   });
 });
 

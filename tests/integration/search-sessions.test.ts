@@ -76,6 +76,14 @@ describe('searchSessions', () => {
 
       expect(result.data).toEqual([]);
     });
+
+    it('should only search user and assistant messages, not summaries', async () => {
+      // "discussion" only appears in the summary, not in user/assistant messages
+      // Search function explicitly skips summary and file-history-snapshot messages
+      const result = await searchSessions('discussion', { dataPath: testDataPath });
+
+      expect(result.data.length).toBe(0);
+    });
   });
 
   describe('match content', () => {

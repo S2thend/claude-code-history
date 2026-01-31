@@ -4,7 +4,7 @@
  * Formats SessionSummary arrays into human-readable tables.
  */
 
-import type { SessionSummary } from '../../lib/index.js';
+import type { SessionSummary, AggregateTokenStats } from '../../lib/index.js';
 
 /**
  * Column widths for table display
@@ -165,4 +165,27 @@ export function formatSessionsForJson(
     index: offset + i,
     ...session,
   }));
+}
+
+/**
+ * Format aggregate token statistics for display.
+ * Uses toLocaleString() for locale-appropriate number formatting per FR-005.
+ *
+ * @param stats - Aggregated token statistics
+ * @returns Formatted statistics string
+ */
+export function formatAggregateStats(stats: AggregateTokenStats): string {
+  const separator = '─'.repeat(80);
+  const lines = [
+    separator,
+    'Aggregate Token Statistics',
+    `  Input tokens:          ${stats.inputTokens.toLocaleString()}`,
+    `  Output tokens:         ${stats.outputTokens.toLocaleString()}`,
+    `  Cache read tokens:     ${stats.cacheReadInputTokens.toLocaleString()}`,
+    `  Cache creation tokens: ${stats.cacheCreationInputTokens.toLocaleString()}`,
+    `  Total tokens:          ${stats.totalTokens.toLocaleString()}`,
+    separator,
+  ];
+
+  return lines.join('\n');
 }

@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { formatSession, formatSessionForJson } from '../../../../src/cli/formatters/session.js';
-import type { Session, UserMessage, AssistantMessage } from '../../../../src/lib/index.js';
+import { formatSession, formatSessionForJson, formatTokenSummary } from '../../../../src/cli/formatters/session.js';
+import type { Session, UserMessage, AssistantMessage, AggregateTokenStats } from '../../../../src/lib/index.js';
 
 /**
  * Create a minimal test session
@@ -470,6 +470,84 @@ describe('formatSession', () => {
       expect(output).toContain('File content');
     });
   });
+
+  describe('non-message entries', () => {
+    it('should skip summary messages in output', () => {
+      const session = createTestSession({
+        messages: [
+          {
+            type: 'summary',
+            uuid: 'summary-1',
+            parentUuid: null,
+            timestamp: new Date('2024-01-15T10:30:00Z'),
+            summary: 'This is the session summary',
+            leafUuid: 'msg-2',
+          } as unknown as UserMessage,
+          {
+            type: 'user',
+            uuid: 'msg-1',
+            parentUuid: null,
+            timestamp: new Date('2024-01-15T10:30:00Z'),
+            content: 'Hello!',
+            cwd: '/test',
+          } as UserMessage,
+          {
+            type: 'assistant',
+            uuid: 'msg-2',
+            parentUuid: 'msg-1',
+            timestamp: new Date('2024-01-15T10:30:05Z'),
+            model: 'claude-3-sonnet',
+            content: [{ type: 'text', text: 'Hi there!' }],
+            stopReason: 'end_turn',
+            usage: { inputTokens: 50, outputTokens: 100 },
+          } as AssistantMessage,
+        ],
+      });
+      const output = formatSession(session);
+
+      // Summary should not appear as a message in the output
+      // The summary text "This is the session summary" should not be in the messages section
+      expect(output).not.toContain('[Summary]');
+      // But user and assistant messages should be present
+      expect(output).toContain('Hello!');
+      expect(output).toContain('Hi there!');
+    });
+  });
+
+  describe('token stats', () => {
+    it('should include token statistics footer when tokenStats option is provided', () => {
+      const session = createTestSession();
+      const tokenStats: AggregateTokenStats = {
+        inputTokens: 1000,
+        outputTokens: 500,
+        totalTokens: 1500,
+        cacheCreationInputTokens: 100,
+        cacheReadInputTokens: 200,
+        messageCount: 10,
+      };
+      const output = formatSession(session, {
+        tokenStats,
+        messages: session.messages,
+      });
+
+      expect(output).toContain('Token Usage Summary');
+      expect(output).toContain('1,000');
+      expect(output).toContain('500');
+    });
+  });
+
+  describe('filtered results', () => {
+    it('should show message when no messages match filter', () => {
+      const session = createTestSession();
+      const output = formatSession(session, {
+        messages: [], // Empty filtered result
+        filter: ['thinking'],
+      });
+
+      expect(output).toContain('No messages match filter');
+      expect(output).toContain('thinking');
+    });
+  });
 });
 
 describe('formatSessionForJson', () => {
@@ -495,5 +573,100 @@ describe('formatSessionForJson', () => {
     expect(result.messages).toBe(session.messages);
     expect(result.summary).toBe('Test summary');
     expect(result.gitBranch).toBe('main');
+  });
+
+  it('should include tokenStats when provided in options', () => {
+    const session = createTestSession();
+    const tokenStats: AggregateTokenStats = {
+      inputTokens: 100,
+      outputTokens: 200,
+      cacheCreationInputTokens: 1000,
+      cacheReadInputTokens: 5000,
+      totalTokens: 6300,
+    };
+
+    const result = formatSessionForJson(session, {
+      messages: session.messages,
+      filter: [],
+      totalMessageCount: 2,
+      tokenStats,
+    });
+
+    expect('tokenStats' in result).toBe(true);
+    if ('tokenStats' in result) {
+      expect(result.tokenStats).toEqual(tokenStats);
+    }
+  });
+});
+
+describe('formatTokenSummary', () => {
+  it('should include all four token types', () => {
+    const stats: AggregateTokenStats = {
+      inputTokens: 100,
+      outputTokens: 200,
+      cacheCreationInputTokens: 1000,
+      cacheReadInputTokens: 5000,
+      totalTokens: 6300,
+    };
+
+    const output = formatTokenSummary(stats);
+
+    expect(output).toContain('Input tokens:');
+    expect(output).toContain('Output tokens:');
+    expect(output).toContain('Cache read tokens:');
+    expect(output).toContain('Cache creation tokens:');
+    expect(output).toContain('Total tokens:');
+  });
+
+  it('should format numbers with locale separators', () => {
+    const stats: AggregateTokenStats = {
+      inputTokens: 1000,
+      outputTokens: 2000,
+      cacheCreationInputTokens: 10000,
+      cacheReadInputTokens: 50000,
+      totalTokens: 63000,
+    };
+
+    const output = formatTokenSummary(stats);
+
+    // toLocaleString() formats numbers with separators
+    // The exact format depends on locale, but should include separators
+    expect(output).toContain('1,000'); // Input
+    expect(output).toContain('2,000'); // Output
+    expect(output).toContain('10,000'); // Cache creation
+    expect(output).toContain('50,000'); // Cache read
+    expect(output).toContain('63,000'); // Total
+  });
+
+  it('should include header and separator lines', () => {
+    const stats: AggregateTokenStats = {
+      inputTokens: 100,
+      outputTokens: 200,
+      cacheCreationInputTokens: 300,
+      cacheReadInputTokens: 400,
+      totalTokens: 1000,
+    };
+
+    const output = formatTokenSummary(stats);
+
+    expect(output).toContain('Token Usage Summary');
+    expect(output).toContain('─'.repeat(80));
+  });
+
+  it('should handle zero values', () => {
+    const stats: AggregateTokenStats = {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheCreationInputTokens: 0,
+      cacheReadInputTokens: 0,
+      totalTokens: 0,
+    };
+
+    const output = formatTokenSummary(stats);
+
+    expect(output).toContain('Input tokens:');
+    expect(output).toContain('Total tokens:');
+    // Should show 0 for all fields
+    expect(output.match(/0/g)?.length).toBeGreaterThanOrEqual(5);
   });
 });

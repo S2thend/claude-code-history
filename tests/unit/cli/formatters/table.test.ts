@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { formatSessionTable, formatSessionsForJson } from '../../../../src/cli/formatters/table.js';
-import type { SessionSummary } from '../../../../src/lib/index.js';
+import { formatSessionTable, formatSessionsForJson, formatAggregateStats } from '../../../../src/cli/formatters/table.js';
+import type { SessionSummary, AggregateTokenStats } from '../../../../src/lib/index.js';
 
 function createMockSession(overrides: Partial<SessionSummary> = {}): SessionSummary {
   return {
@@ -167,5 +167,76 @@ describe('formatSessionsForJson', () => {
     const result = formatSessionsForJson([session]);
 
     expect(result[0].gitBranch).toBeNull();
+  });
+});
+
+describe('formatAggregateStats', () => {
+  it('should include all four token types', () => {
+    const stats: AggregateTokenStats = {
+      inputTokens: 1000,
+      outputTokens: 2000,
+      cacheCreationInputTokens: 5000,
+      cacheReadInputTokens: 50000,
+      totalTokens: 58000,
+    };
+
+    const result = formatAggregateStats(stats);
+
+    expect(result).toContain('Input tokens:');
+    expect(result).toContain('Output tokens:');
+    expect(result).toContain('Cache read tokens:');
+    expect(result).toContain('Cache creation tokens:');
+    expect(result).toContain('Total tokens:');
+  });
+
+  it('should format numbers with locale separators', () => {
+    const stats: AggregateTokenStats = {
+      inputTokens: 1000,
+      outputTokens: 2000,
+      cacheCreationInputTokens: 5000,
+      cacheReadInputTokens: 50000,
+      totalTokens: 58000,
+    };
+
+    const result = formatAggregateStats(stats);
+
+    // toLocaleString() formats with separators
+    expect(result).toContain('1,000');
+    expect(result).toContain('2,000');
+    expect(result).toContain('5,000');
+    expect(result).toContain('50,000');
+    expect(result).toContain('58,000');
+  });
+
+  it('should include header and separator lines', () => {
+    const stats: AggregateTokenStats = {
+      inputTokens: 100,
+      outputTokens: 200,
+      cacheCreationInputTokens: 300,
+      cacheReadInputTokens: 400,
+      totalTokens: 1000,
+    };
+
+    const result = formatAggregateStats(stats);
+
+    expect(result).toContain('Aggregate Token Statistics');
+    expect(result).toContain('─'.repeat(80));
+  });
+
+  it('should handle zero values', () => {
+    const stats: AggregateTokenStats = {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheCreationInputTokens: 0,
+      cacheReadInputTokens: 0,
+      totalTokens: 0,
+    };
+
+    const result = formatAggregateStats(stats);
+
+    expect(result).toContain('Input tokens:');
+    expect(result).toContain('Total tokens:');
+    // Should show 0 values
+    expect(result.match(/0/g)?.length).toBeGreaterThanOrEqual(5);
   });
 });

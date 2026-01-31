@@ -232,6 +232,35 @@ export interface TokenUsage {
   cacheReadInputTokens: number;
 }
 
+/**
+ * Aggregated token statistics across multiple messages or sessions.
+ */
+export interface AggregateTokenStats extends TokenUsage {
+  /** Total tokens (sum of all four categories) */
+  totalTokens: number;
+}
+
+/**
+ * Session with computed token statistics.
+ * Used when token aggregation is requested.
+ */
+export interface SessionWithStats extends Session {
+  /** Aggregated token usage across all assistant messages */
+  tokenStats: AggregateTokenStats;
+}
+
+/**
+ * Result of listing sessions with aggregate statistics.
+ */
+export interface ListStatsResult {
+  /** Session summaries */
+  sessions: SessionSummary[];
+  /** Aggregate token stats across all listed sessions */
+  aggregateStats: AggregateTokenStats;
+  /** Pagination info */
+  pagination: Pagination;
+}
+
 /** File snapshot for history tracking */
 export interface FileSnapshot {
   messageId: string;

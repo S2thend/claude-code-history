@@ -10,6 +10,7 @@ import {
   isSessionNotFoundError,
   isDataNotFoundError,
   filterMessages,
+  computeTokenStats,
   VALID_FILTER_TYPES,
   type FilterableMessageType,
 } from '../../lib/index.js';
@@ -99,6 +100,9 @@ async function executeView(
       (m) => m.type === 'user' || m.type === 'assistant'
     ).length;
 
+    // Compute token statistics for the session
+    const tokenStats = computeTokenStats(session.messages);
+
     // Apply filter if specified
     const filteredMessages = filterTypes
       ? filterMessages(session.messages, { only: filterTypes })
@@ -112,6 +116,7 @@ async function executeView(
           messages: filteredMessages,
           filter: filterTypes,
           totalMessageCount,
+          tokenStats,
         });
         const commandResult = successResult(jsonData);
         output(commandResult, true);
@@ -121,6 +126,7 @@ async function executeView(
           messages: filteredMessages,
           filter: filterTypes,
           totalMessageCount,
+          tokenStats,
         });
         await outputWithPager(formattedSession, options.full);
       }
@@ -129,20 +135,22 @@ async function executeView(
 
     if (options.json) {
       // JSON output
-      const jsonData = formatSessionForJson(session, filterTypes ? {
+      const jsonData = formatSessionForJson(session, {
         messages: filteredMessages,
-        filter: filterTypes,
+        filter: filterTypes ?? [],
         totalMessageCount,
-      } : undefined);
+        tokenStats,
+      });
       const commandResult = successResult(jsonData);
       output(commandResult, true);
     } else {
       // Human-readable output
-      const formattedSession = formatSession(session, filterTypes ? {
+      const formattedSession = formatSession(session, {
         messages: filteredMessages,
-        filter: filterTypes,
+        filter: filterTypes ?? [],
         totalMessageCount,
-      } : undefined);
+        tokenStats,
+      });
       await outputWithPager(formattedSession, options.full);
     }
   } catch (error) {

@@ -61,7 +61,7 @@ function createTestSession(
           model: 'claude-3-sonnet',
           content: [{ type: 'text', text: msg.content }],
           stop_reason: 'end_turn',
-          usage: { input_tokens: 100, output_tokens: 200 },
+          usage: { input_tokens: 100, output_tokens: 200, cache_creation_input_tokens: 500, cache_read_input_tokens: 5000 },
         },
   }));
 
@@ -375,6 +375,62 @@ describe('cch view', () => {
       expect(exitCode).toBe(0);
       // Token count should appear: inputTokens (100) + outputTokens (200) = 300
       expect(stdout).toContain('tokens');
+    });
+
+    it('should display token usage summary footer with all four token types', () => {
+      createTestSession('/Users/dev/project1', 'session-token-footer', [
+        { type: 'user', content: 'Test message' },
+        { type: 'assistant', content: 'Assistant response' },
+      ]);
+
+      const { stdout, exitCode } = runCli('view 0 --full');
+
+      expect(exitCode).toBe(0);
+      // Check for token summary footer
+      expect(stdout).toContain('Token Usage Summary');
+      expect(stdout).toContain('Input tokens:');
+      expect(stdout).toContain('Output tokens:');
+      expect(stdout).toContain('Cache read tokens:');
+      expect(stdout).toContain('Cache creation tokens:');
+      expect(stdout).toContain('Total tokens:');
+    });
+
+    it('should include tokenStats in JSON output', () => {
+      createTestSession('/Users/dev/project1', 'session-json-tokens', [
+        { type: 'user', content: 'Test' },
+        { type: 'assistant', content: 'Response' },
+      ]);
+
+      const { stdout, exitCode } = runCli('view 0 --json');
+
+      expect(exitCode).toBe(0);
+      const json = JSON.parse(stdout);
+      expect(json.data.tokenStats).toBeDefined();
+      expect(json.data.tokenStats.inputTokens).toBe(100);
+      expect(json.data.tokenStats.outputTokens).toBe(200);
+      expect(json.data.tokenStats.cacheCreationInputTokens).toBe(500);
+      expect(json.data.tokenStats.cacheReadInputTokens).toBe(5000);
+      expect(json.data.tokenStats.totalTokens).toBe(5800);
+    });
+
+    it('should correctly aggregate tokens across multiple assistant messages', () => {
+      createTestSession('/Users/dev/project1', 'session-multi-tokens', [
+        { type: 'user', content: 'First question' },
+        { type: 'assistant', content: 'First response' },
+        { type: 'user', content: 'Second question' },
+        { type: 'assistant', content: 'Second response' },
+      ]);
+
+      const { stdout, exitCode } = runCli('view 0 --json');
+
+      expect(exitCode).toBe(0);
+      const json = JSON.parse(stdout);
+      // 2 assistant messages × (100 input + 200 output + 500 cache_create + 5000 cache_read)
+      expect(json.data.tokenStats.inputTokens).toBe(200);
+      expect(json.data.tokenStats.outputTokens).toBe(400);
+      expect(json.data.tokenStats.cacheCreationInputTokens).toBe(1000);
+      expect(json.data.tokenStats.cacheReadInputTokens).toBe(10000);
+      expect(json.data.tokenStats.totalTokens).toBe(11600);
     });
   });
 });
