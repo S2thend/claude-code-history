@@ -470,6 +470,84 @@ describe('formatSession', () => {
       expect(output).toContain('File content');
     });
   });
+
+  describe('non-message entries', () => {
+    it('should skip summary messages in output', () => {
+      const session = createTestSession({
+        messages: [
+          {
+            type: 'summary',
+            uuid: 'summary-1',
+            parentUuid: null,
+            timestamp: new Date('2024-01-15T10:30:00Z'),
+            summary: 'This is the session summary',
+            leafUuid: 'msg-2',
+          } as unknown as UserMessage,
+          {
+            type: 'user',
+            uuid: 'msg-1',
+            parentUuid: null,
+            timestamp: new Date('2024-01-15T10:30:00Z'),
+            content: 'Hello!',
+            cwd: '/test',
+          } as UserMessage,
+          {
+            type: 'assistant',
+            uuid: 'msg-2',
+            parentUuid: 'msg-1',
+            timestamp: new Date('2024-01-15T10:30:05Z'),
+            model: 'claude-3-sonnet',
+            content: [{ type: 'text', text: 'Hi there!' }],
+            stopReason: 'end_turn',
+            usage: { inputTokens: 50, outputTokens: 100 },
+          } as AssistantMessage,
+        ],
+      });
+      const output = formatSession(session);
+
+      // Summary should not appear as a message in the output
+      // The summary text "This is the session summary" should not be in the messages section
+      expect(output).not.toContain('[Summary]');
+      // But user and assistant messages should be present
+      expect(output).toContain('Hello!');
+      expect(output).toContain('Hi there!');
+    });
+  });
+
+  describe('token stats', () => {
+    it('should include token statistics footer when tokenStats option is provided', () => {
+      const session = createTestSession();
+      const tokenStats: AggregateTokenStats = {
+        inputTokens: 1000,
+        outputTokens: 500,
+        totalTokens: 1500,
+        cacheCreationInputTokens: 100,
+        cacheReadInputTokens: 200,
+        messageCount: 10,
+      };
+      const output = formatSession(session, {
+        tokenStats,
+        messages: session.messages,
+      });
+
+      expect(output).toContain('Token Usage Summary');
+      expect(output).toContain('1,000');
+      expect(output).toContain('500');
+    });
+  });
+
+  describe('filtered results', () => {
+    it('should show message when no messages match filter', () => {
+      const session = createTestSession();
+      const output = formatSession(session, {
+        messages: [], // Empty filtered result
+        filter: ['thinking'],
+      });
+
+      expect(output).toContain('No messages match filter');
+      expect(output).toContain('thinking');
+    });
+  });
 });
 
 describe('formatSessionForJson', () => {

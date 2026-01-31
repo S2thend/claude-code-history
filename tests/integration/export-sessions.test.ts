@@ -33,8 +33,21 @@ describe('export functions', () => {
     '{"type":"assistant","uuid":"msg-006","parentUuid":"msg-005","timestamp":"2025-12-02T10:00:15.000Z","sessionId":"session-002","message":{"model":"claude-opus-4-5-20251101","role":"assistant","content":[{"type":"thinking","thinking":"Let me think about this carefully..."},{"type":"text","text":"Here is my answer."}],"stop_reason":"end_turn"}}',
   ].join('\n');
 
+  const sessionWithAgent = [
+    '{"type":"summary","summary":"Session with agent","leafUuid":"msg-008"}',
+    '{"type":"user","uuid":"msg-007","parentUuid":null,"timestamp":"2025-12-03T10:00:00.000Z","sessionId":"session-003","cwd":"/test/project","gitBranch":"main","version":"2.0.55","message":{"role":"user","content":"Use an agent"}}',
+    '{"type":"assistant","uuid":"msg-008","parentUuid":"msg-007","timestamp":"2025-12-03T10:00:15.000Z","sessionId":"session-003","message":{"model":"claude-opus-4-5-20251101","role":"assistant","content":[{"type":"text","text":"Launching agent..."}],"stop_reason":"end_turn"}}',
+  ].join('\n');
+
+  const agentSession = [
+    '{"type":"summary","summary":"Agent task","leafUuid":"agent-msg-002"}',
+    '{"type":"user","uuid":"agent-msg-001","parentUuid":null,"timestamp":"2025-12-03T10:00:30.000Z","sessionId":"session-003","agentId":"abc123","cwd":"/test/project","isSidechain":true,"message":{"role":"user","content":"Agent prompt"}}',
+    '{"type":"assistant","uuid":"agent-msg-002","parentUuid":"agent-msg-001","timestamp":"2025-12-03T10:00:45.000Z","sessionId":"session-003","agentId":"abc123","message":{"model":"claude-haiku-4-5-20251001","role":"assistant","content":[{"type":"text","text":"Agent response"}],"stop_reason":"end_turn"}}',
+  ].join('\n');
+
   const sessionUuid1 = '11111111-1111-1111-1111-111111111111';
   const sessionUuid2 = '22222222-2222-2222-2222-222222222222';
+  const sessionUuid3 = '33333333-3333-3333-3333-333333333333';
 
   beforeAll(async () => {
     const projectDir = join(projectsPath, '-test-project');
@@ -42,6 +55,8 @@ describe('export functions', () => {
 
     await writeFile(join(projectDir, `${sessionUuid1}.jsonl`), session1);
     await writeFile(join(projectDir, `${sessionUuid2}.jsonl`), session2);
+    await writeFile(join(projectDir, `${sessionUuid3}.jsonl`), sessionWithAgent);
+    await writeFile(join(projectDir, 'agent-abc123.jsonl'), agentSession);
   });
 
   afterAll(async () => {
@@ -153,6 +168,15 @@ describe('export functions', () => {
       expect(markdown).toContain('```typescript');
       expect(markdown).toContain('function identity');
     });
+
+    it('should include agent sessions if available', async () => {
+      const markdown = await exportSessionToMarkdown(sessionUuid3, {
+        dataPath: testDataPath,
+      });
+
+      expect(markdown).toContain('| Agent Sessions |');
+      expect(markdown).toContain('abc123');
+    });
   });
 
   describe('exportAllSessionsToJson', () => {
@@ -161,16 +185,17 @@ describe('export functions', () => {
       const sessions = JSON.parse(json);
 
       expect(Array.isArray(sessions)).toBe(true);
-      expect(sessions.length).toBe(2);
+      expect(sessions.length).toBe(3);
     });
 
-    it('should include both sessions', async () => {
+    it('should include all sessions', async () => {
       const json = await exportAllSessionsToJson({ dataPath: testDataPath });
       const sessions = JSON.parse(json);
 
       const ids = sessions.map((s: { id: string }) => s.id);
       expect(ids).toContain(sessionUuid1);
       expect(ids).toContain(sessionUuid2);
+      expect(ids).toContain(sessionUuid3);
     });
   });
 
@@ -181,6 +206,22 @@ describe('export functions', () => {
       expect(markdown).toContain('# TypeScript discussion');
       expect(markdown).toContain('# Thinking example');
       expect(markdown).toContain('---'); // Separator
+    });
+
+    it('should skip sessions that fail to export', async () => {
+      // Create a corrupted session file
+      const projectDir = join(projectsPath, '-test-project');
+      const corruptedUuid = '99999999-9999-9999-9999-999999999999';
+      await writeFile(join(projectDir, `${corruptedUuid}.jsonl`), 'invalid json content');
+
+      const markdown = await exportAllSessionsToMarkdown({ dataPath: testDataPath });
+
+      // Should still export the valid sessions
+      expect(markdown).toContain('# TypeScript discussion');
+      expect(markdown).toContain('# Thinking example');
+
+      // Clean up corrupted file
+      await rm(join(projectDir, `${corruptedUuid}.jsonl`), { force: true });
     });
   });
 
