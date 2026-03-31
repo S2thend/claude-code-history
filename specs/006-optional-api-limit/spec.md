@@ -50,18 +50,20 @@ A library consumer calls `listSessions({ limit: 20 })` with an explicit limit an
 
 ---
 
-### User Story 3 - CLI User Sees Paginated Output by Default (Priority: P2)
+### User Story 3 - CLI User Sees CLI Defaults Align with the Library (Priority: P2)
 
-A CLI user runs `cch list` without flags and sees a paginated list of up to 50 sessions, maintaining the current user experience. The CLI layer continues to apply its own display default of 50 sessions, separate from the library layer.
+A CLI user runs session-enumerating CLI commands without explicit `--limit` flags and sees behavior that matches the library's no-limit semantics. Commands like `cch list` and `cch search` should no longer diverge from the library on the meaning of an omitted `limit`.
 
-**Why this priority**: The CLI display experience should remain unchanged. Users interacting via the terminal expect a manageable default page size.
+**Why this priority**: Aligning the CLI with the library removes a surprising behavioral split between the two public entry points. Users who omit `--limit` should not get incomplete results from CLI commands when the library would return everything in scope.
 
-**Independent Test**: Can be fully tested by running the `cch list` CLI command and verifying the output displays at most 50 sessions with pagination hints.
+**Independent Test**: Can be fully tested by running `cch list` and `cch search` on data sets containing more than 50 qualifying sessions or matches and verifying that omitted `--limit` values do not truncate results.
 
 **Acceptance Scenarios**:
 
-1. **Given** a data directory containing 94 sessions, **When** a user runs `cch list` with no flags, **Then** the CLI displays at most 50 sessions with a pagination hint showing more are available.
-2. **Given** a data directory containing 94 sessions, **When** a user runs `cch list --limit 10`, **Then** the CLI displays exactly 10 sessions.
+1. **Given** a data directory containing 94 sessions, **When** a user runs `cch list` with no flags, **Then** the CLI displays all 94 sessions rather than truncating at 50.
+2. **Given** a data directory containing 94 sessions and search matches that occur in sessions beyond the first 20 results, **When** a user runs `cch search "<query>"` with no `--limit`, **Then** the CLI displays matches from all qualifying sessions rather than truncating at the prior default of 20.
+3. **Given** a data directory containing 94 sessions, **When** a user runs `cch list --limit 10`, **Then** the CLI displays exactly 10 sessions.
+4. **Given** a data directory containing more than 20 matching search results, **When** a user runs `cch search "<query>" --limit 10`, **Then** the CLI displays exactly 10 matching results.
 
 ---
 
@@ -78,13 +80,13 @@ A CLI user runs `cch list` without flags and sees a paginated list of up to 50 s
 
 - **FR-001**: The library MUST return all sessions on the machine when `listSessions()` is called without a numeric `limit` in the configuration, including when the `limit` property is omitted or explicitly set to `undefined`.
 - Clarification: Explicit `limit: undefined` is treated the same as omitting `limit`; both invoke the same no-limit behavior.
-- **FR-003**: The library MUST continue to respect an explicitly provided numeric `limit` and return at most that many sessions.
-- **FR-004**: The library MUST correctly apply `offset` when no `limit` is provided, returning all sessions from the offset position onward.
-- **FR-005**: The pagination metadata MUST accurately reflect the actual result set: when no limit is applied, `hasMore` MUST be `false` (since all remaining items are returned).
-- **FR-006**: The pagination metadata `limit` field MUST be set to the count of items actually returned when no explicit limit is provided. The `Pagination` type remains `number` with no type change.
-- **FR-007**: The CLI `list` command MUST continue to default to displaying 50 sessions when no `--limit` flag is provided by the user.
-- **FR-008**: Session-enumerating library functions that rely on the shared configuration resolution, including `searchSessions()`, `exportAllSessionsToJson()`, and `exportAllSessionsToMarkdown()`, MUST honor the "no numeric limit means all sessions" behavior consistently.
-- **FR-009**: The library MUST continue to reject negative `limit` values with a validation error.
+- **FR-002**: The library MUST continue to respect an explicitly provided numeric `limit` and return at most that many sessions.
+- **FR-003**: The library MUST correctly apply `offset` when no `limit` is provided, returning all sessions from the offset position onward.
+- **FR-004**: The pagination metadata MUST accurately reflect the actual result set: when no limit is applied, `hasMore` MUST be `false` (since all remaining items are returned).
+- **FR-005**: The pagination metadata `limit` field MUST be set to the count of items actually returned when no explicit limit is provided. The `Pagination` type remains `number` with no type change.
+- **FR-006**: Session-enumerating CLI commands, including `cch list` and `cch search`, MUST default to the same omitted-limit behavior as the library when no `--limit` flag is provided by the user.
+- **FR-007**: Session-enumerating library functions that rely on the shared configuration resolution, including `searchSessions()`, `exportAllSessionsToJson()`, and `exportAllSessionsToMarkdown()`, MUST honor the "no numeric limit means all sessions" behavior consistently.
+- **FR-008**: The library MUST continue to reject negative `limit` values with a validation error.
 
 ### Key Entities
 
@@ -94,7 +96,7 @@ A CLI user runs `cch list` without flags and sees a paginated list of up to 50 s
 
 ## Assumptions
 
-- The default limit of 50 in the CLI layer (`--limit` option default value of `'50'`) is the correct display default for terminal users and should not change.
+- The CLI `list` command should align with the library semantics: omitting `--limit` means no numeric limit is applied.
 - Downstream library consumers who omit `limit` expect all sessions on the machine, following the common convention that omitting a pagination parameter means "give me everything."
 - Performance is acceptable when returning all sessions without a limit, as the session list is metadata-only (no full message parsing occurs during listing).
 - The `offset` parameter default of `0` remains unchanged and is appropriate at both the library and CLI layers.
@@ -106,6 +108,6 @@ A CLI user runs `cch list` without flags and sees a paginated list of up to 50 s
 
 - **SC-001**: Library consumers calling `listSessions()` without a limit receive 100% of available sessions on the machine in the result set, regardless of total session count.
 - **SC-002**: Library consumers calling `listSessions({ limit: N })` with an explicit limit continue to receive at most N sessions, preserving backward compatibility for 100% of existing explicit-limit call sites.
-- **SC-003**: CLI users running `cch list` without flags see at most 50 sessions displayed, maintaining the existing terminal user experience.
+- **SC-003**: CLI users running session-enumerating commands without `--limit` see 100% of available results in scope, matching the library's no-limit default behavior.
 - **SC-004**: Pagination metadata (`total`, `limit`, `hasMore`, `offset`) is accurate in all scenarios: with explicit limit, without limit, and with offset-only configurations.
 - **SC-005**: Session-enumerating library helpers that omit `limit` consider 100% of available sessions rather than stopping at the first 50.

@@ -34,7 +34,7 @@
 - [ ] T006 Update `resolveConfig()` in src/lib/config.ts — change limit resolution from `config?.limit ?? DEFAULT_CONFIG.limit` to `config?.limit`, and guard validation with `resolved.limit !== undefined &&` before the `< 0` check
 - [ ] T007 Update `paginate()` in src/lib/config.ts — when `config.limit` is `undefined`, return `items.slice(config.offset)` instead of `items.slice(config.offset, config.offset + config.limit)`
 - [ ] T008 Update `createPagination()` in src/lib/config.ts — when `config.limit` is `undefined`, return `{ total, limit: Math.max(0, total - config.offset), offset: config.offset, hasMore: false }`
-- [ ] T009 Run `npm run typecheck` to verify all type changes compile. Fix any downstream type errors in the following files that consume `ResolvedConfig.limit`: src/lib/session.ts, src/lib/search.ts, src/lib/stats.ts
+- [ ] T009 Run `npm run typecheck` to verify all type changes compile. Fix any downstream type errors in the following files that consume `ResolvedConfig.limit`: src/lib/session.ts, src/lib/search.ts
 
 **Checkpoint**: Foundation ready — library now returns all results when no limit is provided. User story testing can begin.
 
@@ -68,7 +68,7 @@
 
 ## Phase 4: User Story 2 — Library Consumer Requests Explicit Limit (Priority: P1)
 
-**Goal**: `listSessions({ limit: N })` with an explicit numeric limit continues to return exactly N results. Backward compatibility is preserved. Additionally, other session-enumerating library functions (`searchSessions()` and the export-all helpers) honor the new no-limit default (FR-008).
+**Goal**: `listSessions({ limit: N })` with an explicit numeric limit continues to return exactly N results. Backward compatibility is preserved. Additionally, other session-enumerating library functions (`searchSessions()` and the export-all helpers) honor the new no-limit default (FR-007).
 
 **Independent Test**: Call `listSessions({ limit: 20 })` on a data set with more than 20 sessions and verify exactly 20 are returned with correct pagination. Separately, call `searchSessions()` and the export-all helpers without a limit on a data set containing more than 50 sessions and verify they consider all sessions.
 
@@ -81,7 +81,7 @@
 - [ ] T024 [US2] Add integration test in tests/integration/list-sessions.test.ts — `listSessions({ limit: 20 })` on 94+ sessions returns exactly 20 sessions with `pagination.hasMore === true`
 - [ ] T025 [US2] Add integration test in tests/integration/list-sessions.test.ts — `listSessions({ limit: 20, offset: 80 })` on 94 sessions returns 14 sessions with `pagination.hasMore === false`
 
-### FR-008: Shared No-Limit Consistency
+### FR-007: Shared No-Limit Consistency
 
 - [ ] T026 [US2] Simplify `searchSessions()` in src/lib/search.ts — remove `limit: Number.MAX_SAFE_INTEGER` and `offset: 0` workaround when calling `listSessions()` internally, relying on the new default "no limit" behavior
 - [ ] T027 [US2] Add integration test in tests/integration/search-sessions.test.ts — call `searchSessions()` without a limit on a dataset with 94+ sessions and verify matches are found in sessions beyond the former 50-session cap
@@ -97,20 +97,26 @@
 
 ---
 
-## Phase 5: User Story 3 — CLI User Sees Paginated Output by Default (Priority: P2)
+## Phase 5: User Story 3 — CLI User Sees CLI Defaults Align with the Library (Priority: P2)
 
-**Goal**: `cch list` without flags continues to display at most 50 sessions. The CLI layer is unaffected by the library change.
+**Goal**: Session-enumerating CLI commands align with the library when `--limit` is omitted. `cch list` and `cch search` return all in-scope results by default, while explicit `--limit` values continue to support paging.
 
-**Independent Test**: Run `cch list` CLI command and verify the output displays at most 50 sessions with pagination hints.
+**Independent Test**: Run `cch list` and `cch search` on data sets with more than 50 sessions or more than 20 matching results and verify omitted `--limit` values do not truncate results, while explicit `--limit` values still work.
 
 ### Tests for User Story 3
 
-- [ ] T032 [US3] Add or verify CLI integration test in tests/integration/cli/list.test.ts — `cch list` with no flags on 94+ sessions displays at most 50 sessions with a pagination hint
-- [ ] T033 [US3] Add or verify CLI integration test in tests/integration/cli/list.test.ts — `cch list --limit 10` displays exactly 10 sessions
+- [ ] T032 [US3] Update `registerListCommand()` and `executeList()` in src/cli/commands/list.ts — remove the implicit `'50'` default for `--limit`, make omitted `limit` optional, and only pass `limit` to the library when explicitly provided
+- [ ] T033 [US3] Add or update unit test in tests/unit/cli/commands/list.test.ts — `cch list` without `--limit` calls `listSessions()` without injecting a numeric `limit`
+- [ ] T034 [US3] Update `registerSearchCommand()` and `executeSearch()` in src/cli/commands/search.ts — remove the implicit `'20'` default for `--limit` when searching across sessions, make omitted `limit` optional, and only pass `limit` to the library when explicitly provided
+- [ ] T035 [US3] Add or update unit test in tests/unit/cli/commands/search.test.ts — `cch search` without `--limit` calls `searchSessions()` without injecting a numeric `limit`
+- [ ] T036 [US3] Add or verify CLI integration test in tests/integration/cli/list.test.ts — `cch list` with no flags on 94+ sessions displays all sessions with no truncation at 50
+- [ ] T037 [US3] Add or verify CLI integration test in tests/integration/cli/list.test.ts — `cch list --limit 10` displays exactly 10 sessions
+- [ ] T038 [US3] Add or verify CLI integration test in tests/integration/cli/search.test.ts — `cch search "<query>"` with no `--limit` returns matches beyond the former 20-result cap
+- [ ] T039 [US3] Add or verify CLI integration test in tests/integration/cli/search.test.ts — `cch search "<query>" --limit 10` displays exactly 10 matches
 
 ### Verification for User Story 3
 
-- [ ] T034 [US3] Run `npm test` and verify all US3 tests pass confirming CLI default is preserved
+- [ ] T040 [US3] Run `npm test` and verify all US3 tests pass confirming CLI defaults align with the library
 
 **Checkpoint**: All three user stories are independently functional and tested.
 
@@ -120,10 +126,10 @@
 
 **Purpose**: Edge cases and final validation across all stories
 
-- [ ] T035 [P] Add edge case unit test in tests/unit/config.test.ts — `resolveConfig({ limit: 0 })` returns `limit: 0` (zero sessions)
-- [ ] T036 [P] Add edge case integration test in tests/integration/list-sessions.test.ts — `listSessions()` on empty data directory with no limit returns empty result with `pagination.total === 0`
-- [ ] T037 [P] Add edge case integration test in tests/integration/list-sessions.test.ts — `listSessions({ offset: 200 })` on 94 sessions returns empty result with `pagination.hasMore === false`
-- [ ] T038 Run full validation: `npm run typecheck && npm run test:coverage && npm run lint` — all must pass, including library coverage thresholds
+- [ ] T041 [P] Add edge case unit test in tests/unit/config.test.ts — `resolveConfig({ limit: 0 })` returns `limit: 0` (zero sessions)
+- [ ] T042 [P] Add edge case integration test in tests/integration/list-sessions.test.ts — `listSessions()` on empty data directory with no limit returns empty result with `pagination.total === 0`
+- [ ] T043 [P] Add edge case integration test in tests/integration/list-sessions.test.ts — `listSessions({ offset: 200 })` on 94 sessions returns empty result with `pagination.hasMore === false`
+- [ ] T044 Run full validation: `npm run typecheck && npm run test:coverage && npm run lint` — all must pass, including library coverage thresholds
 
 ---
 
@@ -135,14 +141,14 @@
 - **Foundational (Phase 2)**: Depends on Setup completion — BLOCKS all user stories
 - **User Stories (Phase 3-5)**: All depend on Foundational phase completion
   - US1 and US2 can proceed sequentially or as different test cases within the same files (no logical dependencies between them)
-  - US3 can proceed independently (tests are in a separate file: tests/integration/cli/list.test.ts)
+  - US3 can proceed independently (its CLI changes live in separate CLI files, including tests/integration/cli/list.test.ts, tests/integration/cli/search.test.ts, tests/unit/cli/commands/list.test.ts, and tests/unit/cli/commands/search.test.ts)
 - **Polish (Phase 6)**: Depends on all user stories being complete
 
 ### User Story Dependencies
 
 - **User Story 1 (P1)**: Can start after Foundational (Phase 2) — No dependencies on other stories
-- **User Story 2 (P1)**: Can start after Foundational (Phase 2) — No dependencies on other stories (tests backward compat + FR-008 search/export consistency)
-- **User Story 3 (P2)**: Can start after Foundational (Phase 2) — No dependencies on other stories (CLI layer is unchanged)
+- **User Story 2 (P1)**: Can start after Foundational (Phase 2) — No dependencies on other stories (tests backward compat + FR-007 search/export consistency)
+- **User Story 3 (P2)**: Can start after Foundational (Phase 2) — No dependencies on other stories (CLI session-enumerating commands now align with the library's omitted-limit behavior)
 
 ### Within Each User Story
 
@@ -156,8 +162,8 @@
 - T003, T004, T005 can be done as a single logical edit to src/lib/config.ts + src/lib/types.ts
 - T010-T014 can all run in parallel (different test cases, same file but independent)
 - T020-T023 can all run in parallel (different test cases, same file but independent)
-- T035-T037 can all run in parallel (different edge case tests)
-- US3 can run in parallel with US1/US2 (different test file: tests/integration/cli/list.test.ts)
+- T041-T043 can all run in parallel (different edge case tests)
+- US3 can run in parallel with US1/US2 (different CLI files: tests/integration/cli/list.test.ts, tests/integration/cli/search.test.ts, tests/unit/cli/commands/list.test.ts, tests/unit/cli/commands/search.test.ts)
 
 ---
 
@@ -188,8 +194,8 @@ Task: T014 "createPagination() with undefined limit returns correct metadata"
 
 1. Complete Setup + Foundational -> Config changes in place
 2. Add User Story 1 tests -> Verify unlimited behavior works (MVP!)
-3. Add User Story 2 tests + search/export cleanup -> Verify backward compat + FR-008
-4. Add User Story 3 tests -> Verify CLI unchanged
+3. Add User Story 2 tests + search/export cleanup -> Verify backward compat + FR-007
+4. Add User Story 3 CLI changes + tests -> Verify CLI defaults align with library
 5. Polish -> Edge cases, coverage validation, final lint
 
 ### Parallel Team Strategy
@@ -200,7 +206,7 @@ With multiple developers:
 2. Once Foundational is done:
    - Developer A: User Story 1 (unlimited tests)
    - Developer B: User Story 2 (backward compat + search/export consistency)
-   - Developer C: User Story 3 (CLI verification — different test file, true parallelism)
+   - Developer C: User Story 3 (CLI list/search default alignment + tests — separate CLI files)
 3. Stories complete and validate independently
 
 ---
@@ -210,7 +216,7 @@ With multiple developers:
 - [P] tasks = different files or independent test cases, no dependencies
 - [Story] label maps task to specific user story for traceability
 - Each user story is independently testable after Foundational phase
-- The core code change is still small (~50 lines across 4 files) — most effort is in testing
+- The core code change is still moderate (~90 lines across 6-7 files) — most effort is in testing
 - `searchInSession()` also calls `resolveConfig()` but is unaffected — it does not enumerate sessions or use `limit` for its return value (it returns all matches within a single session)
 - Commit after each phase or logical group
 - Stop at any checkpoint to validate independently
