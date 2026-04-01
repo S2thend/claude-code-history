@@ -29,7 +29,8 @@ function generateTestUUID(): string {
 function createTestSession(
   projectPath: string,
   sessionLabel: string,
-  messages: { type: string; content: string }[]
+  messages: { type: string; content: string }[],
+  options?: { summary?: string }
 ): void {
   const sessionId = generateTestUUID();
   const encodedPath = projectPath.replace(/\//g, '-');
@@ -67,7 +68,7 @@ function createTestSession(
     uuid: 'summary-1',
     parentUuid: null,
     timestamp: new Date().toISOString(),
-    summary: `Test session: ${sessionLabel}`,
+    summary: options?.summary ?? `Test session: ${sessionLabel}`,
     leafUuid: `msg-${messages.length - 1}`,
   } as unknown as (typeof entries)[0]);
 
@@ -287,6 +288,43 @@ describe('cch list', () => {
       const { stdout } = runCli('list --limit 1 --full');
 
       expect(stdout).toContain('--offset');
+    });
+  });
+
+  describe('omitted --limit alignment', () => {
+    it('should display sessions beyond the former 50-session cap when no limit is provided', () => {
+      for (let i = 0; i < 94; i++) {
+        createTestSession(
+          '/Users/dev/project-limit-alignment',
+          `session-${i}`,
+          [{ type: 'user', content: `Session content ${i}` }],
+          {
+            summary: i === 0 ? 'oldest-cap-marker' : `list session ${i}`,
+          }
+        );
+      }
+
+      const { stdout, exitCode } = runCli('list');
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('oldest-cap-marker');
+      expect(stdout).not.toContain('Use --offset');
+    });
+
+    it('should display exactly 10 sessions when --limit 10 is provided', () => {
+      for (let i = 0; i < 12; i++) {
+        createTestSession('/Users/dev/project-limit-ten', `session-${i}`, [
+          { type: 'user', content: `Session content ${i}` },
+        ]);
+      }
+
+      const { stdout, exitCode } = runCli('list --limit 10 --json');
+      const json = JSON.parse(stdout);
+
+      expect(exitCode).toBe(0);
+      expect(json.data).toHaveLength(10);
+      expect(json.pagination.limit).toBe(10);
+      expect(json.pagination.hasMore).toBe(true);
     });
   });
 

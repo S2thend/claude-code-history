@@ -17,8 +17,8 @@
 
 **Purpose**: Verify baseline before making changes
 
-- [ ] T001 Verify all existing tests pass by running `npm test` from repository root
-- [ ] T002 Verify TypeScript compiles cleanly by running `npm run typecheck` from repository root
+- [X] T001 Verify all existing tests pass by running `npm test` from repository root
+- [X] T002 Verify TypeScript compiles cleanly by running `npm run typecheck` from repository root
 
 ---
 
@@ -28,13 +28,13 @@
 
 **Warning**: No user story work can begin until this phase is complete
 
-- [ ] T003 Update JSDoc for `LibraryConfig.limit` field in src/lib/types.ts — change comment from "Default: 50" to "When omitted or undefined, all results are returned"
-- [ ] T004 Update `ResolvedConfig` interface in src/lib/config.ts — change `limit` field type from `number` to `number | undefined`
-- [ ] T005 Update `DEFAULT_CONFIG` in src/lib/config.ts — remove `limit: 50` entry and update the type annotation to omit `limit`
-- [ ] T006 Update `resolveConfig()` in src/lib/config.ts — change limit resolution from `config?.limit ?? DEFAULT_CONFIG.limit` to `config?.limit`, and guard validation with `resolved.limit !== undefined &&` before the `< 0` check
-- [ ] T007 Update `paginate()` in src/lib/config.ts — when `config.limit` is `undefined`, return `items.slice(config.offset)` instead of `items.slice(config.offset, config.offset + config.limit)`
-- [ ] T008 Update `createPagination()` in src/lib/config.ts — when `config.limit` is `undefined`, return `{ total, limit: Math.max(0, total - config.offset), offset: config.offset, hasMore: false }`
-- [ ] T009 Run `npm run typecheck` to verify all type changes compile. Fix any downstream type errors in the following files that consume `ResolvedConfig.limit`: src/lib/session.ts, src/lib/search.ts
+- [X] T003 Update JSDoc for `LibraryConfig.limit` field in src/lib/types.ts — change comment from "Default: 50" to "When omitted or undefined, all results are returned"
+- [X] T004 Update `ResolvedConfig` interface in src/lib/config.ts — change `limit` field type from `number` to `number | undefined`
+- [X] T005 Update `DEFAULT_CONFIG` in src/lib/config.ts — remove `limit: 50` entry and update the type annotation to omit `limit`
+- [X] T006 Update `resolveConfig()` in src/lib/config.ts — change limit resolution from `config?.limit ?? DEFAULT_CONFIG.limit` to `config?.limit`, and guard validation with `resolved.limit !== undefined &&` before the `< 0` check
+- [X] T007 Update `paginate()` in src/lib/config.ts — when `config.limit` is `undefined`, return `items.slice(config.offset)` instead of `items.slice(config.offset, config.offset + config.limit)`
+- [X] T008 Update `createPagination()` in src/lib/config.ts — when `config.limit` is `undefined`, return `{ total, limit: Math.max(0, total - config.offset), offset: config.offset, hasMore: false }`
+- [X] T009 Run `npm run typecheck` to verify all type changes compile. Fix any downstream type errors in the following files that consume `ResolvedConfig.limit`: src/lib/session.ts, src/lib/search.ts
 
 **Checkpoint**: Foundation ready — library now returns all results when no limit is provided. User story testing can begin.
 
@@ -48,19 +48,19 @@
 
 ### Tests for User Story 1
 
-- [ ] T010 [P] [US1] Add unit test in tests/unit/config.test.ts — `resolveConfig()` with no argument returns `limit: undefined`
-- [ ] T011 [P] [US1] Add unit test in tests/unit/config.test.ts — `resolveConfig({})` with empty object returns `limit: undefined`
-- [ ] T012 [P] [US1] Add unit test in tests/unit/config.test.ts — `resolveConfig({ limit: undefined })` with explicit undefined returns `limit: undefined`
-- [ ] T013 [P] [US1] Add unit test in tests/unit/config.test.ts — `paginate()` with `limit: undefined` returns all items from offset onward
-- [ ] T014 [P] [US1] Add unit test in tests/unit/config.test.ts — `createPagination()` with `limit: undefined` returns `hasMore: false` and `limit` equal to items returned count
-- [ ] T015 [US1] Add integration test in tests/integration/list-sessions.test.ts — `listSessions()` with no config on 94+ sessions returns all sessions with `pagination.hasMore === false`
-- [ ] T016 [US1] Add integration test in tests/integration/list-sessions.test.ts — `listSessions({})` with empty config on 94+ sessions returns all sessions
-- [ ] T017 [US1] Add integration test in tests/integration/list-sessions.test.ts — `listSessions({ limit: undefined })` with explicit undefined on 94+ sessions returns all sessions (verifies explicit undefined matches omitted limit / Edge Case 4)
-- [ ] T018 [US1] Add integration test in tests/integration/list-sessions.test.ts — `listSessions({ offset: 10 })` with only offset returns all sessions from offset 10 onward with correct pagination metadata
+- [X] T010 [P] [US1] Add unit test in tests/unit/config.test.ts — `resolveConfig()` with no argument returns `limit: undefined`
+- [X] T011 [P] [US1] Add unit test in tests/unit/config.test.ts — `resolveConfig({})` with empty object returns `limit: undefined`
+- [X] T012 [P] [US1] Add unit test in tests/unit/config.test.ts — `resolveConfig({ limit: undefined })` with explicit undefined returns `limit: undefined`
+- [X] T013 [P] [US1] Add unit test in tests/unit/config.test.ts — `paginate()` with `limit: undefined` returns all items from offset onward
+- [X] T014 [P] [US1] Add unit test in tests/unit/config.test.ts — `createPagination()` with `limit: undefined` returns `hasMore: false` and `limit` equal to items returned count
+- [X] T015 [US1] Add integration test in tests/integration/list-sessions.test.ts — `listSessions()` with no config on 94+ sessions returns all sessions with `pagination.hasMore === false`
+- [X] T016 [US1] Add integration test in tests/integration/list-sessions.test.ts — `listSessions({})` with empty config on 94+ sessions returns all sessions
+- [X] T017 [US1] Add integration test in tests/integration/list-sessions.test.ts — `listSessions({ limit: undefined })` with explicit undefined on 94+ sessions returns all sessions (verifies explicit undefined matches omitted limit / Edge Case 4)
+- [X] T018 [US1] Add integration test in tests/integration/list-sessions.test.ts — `listSessions({ offset: 10 })` with only offset returns all sessions from offset 10 onward with correct pagination metadata
 
 ### Verification for User Story 1
 
-- [ ] T019 [US1] Run `npm test` and verify all US1 tests pass with correct unlimited behavior
+- [X] T019 [US1] Run `npm test` and verify all US1 tests pass with correct unlimited behavior
 
 **Checkpoint**: User Story 1 is fully functional and tested. Library consumers calling `listSessions()` without a limit receive all sessions.
 
@@ -74,24 +74,24 @@
 
 ### Tests for User Story 2
 
-- [ ] T020 [P] [US2] Add unit test in tests/unit/config.test.ts — `resolveConfig({ limit: 20 })` returns `limit: 20`
-- [ ] T021 [P] [US2] Add unit test in tests/unit/config.test.ts — `paginate()` with `limit: 20` on 94 items returns exactly 20 items
-- [ ] T022 [P] [US2] Add unit test in tests/unit/config.test.ts — `createPagination()` with `limit: 20`, `total: 94` returns `hasMore: true`
-- [ ] T023 [P] [US2] Add unit test in tests/unit/config.test.ts — `resolveConfig({ limit: -1 })` throws "limit must be non-negative" error
-- [ ] T024 [US2] Add integration test in tests/integration/list-sessions.test.ts — `listSessions({ limit: 20 })` on 94+ sessions returns exactly 20 sessions with `pagination.hasMore === true`
-- [ ] T025 [US2] Add integration test in tests/integration/list-sessions.test.ts — `listSessions({ limit: 20, offset: 80 })` on 94 sessions returns 14 sessions with `pagination.hasMore === false`
+- [X] T020 [P] [US2] Add unit test in tests/unit/config.test.ts — `resolveConfig({ limit: 20 })` returns `limit: 20`
+- [X] T021 [P] [US2] Add unit test in tests/unit/config.test.ts — `paginate()` with `limit: 20` on 94 items returns exactly 20 items
+- [X] T022 [P] [US2] Add unit test in tests/unit/config.test.ts — `createPagination()` with `limit: 20`, `total: 94` returns `hasMore: true`
+- [X] T023 [P] [US2] Add unit test in tests/unit/config.test.ts — `resolveConfig({ limit: -1 })` throws "limit must be non-negative" error
+- [X] T024 [US2] Add integration test in tests/integration/list-sessions.test.ts — `listSessions({ limit: 20 })` on 94+ sessions returns exactly 20 sessions with `pagination.hasMore === true`
+- [X] T025 [US2] Add integration test in tests/integration/list-sessions.test.ts — `listSessions({ limit: 20, offset: 80 })` on 94 sessions returns 14 sessions with `pagination.hasMore === false`
 
 ### FR-007: Shared No-Limit Consistency
 
-- [ ] T026 [US2] Simplify `searchSessions()` in src/lib/search.ts — remove `limit: Number.MAX_SAFE_INTEGER` and `offset: 0` workaround when calling `listSessions()` internally, relying on the new default "no limit" behavior
-- [ ] T027 [US2] Add integration test in tests/integration/search-sessions.test.ts — call `searchSessions()` without a limit on a dataset with 94+ sessions and verify matches are found in sessions beyond the former 50-session cap
-- [ ] T028 [US2] Simplify `exportAllSessionsToJson()` and `exportAllSessionsToMarkdown()` in src/lib/export.ts — remove `limit: Number.MAX_SAFE_INTEGER` and `offset: 0` workaround when calling `listSessions()` internally, relying on the new default "no limit" behavior
-- [ ] T029 [US2] Add integration test in tests/integration/export-sessions.test.ts — `exportAllSessionsToJson()` without a limit on a dataset with 94+ sessions exports all sessions beyond the former 50-session cap
-- [ ] T030 [US2] Add integration test in tests/integration/export-sessions.test.ts — `exportAllSessionsToMarkdown()` without a limit on a dataset with 94+ sessions exports all sessions beyond the former 50-session cap
+- [X] T026 [US2] Simplify `searchSessions()` in src/lib/search.ts — remove `limit: Number.MAX_SAFE_INTEGER` and `offset: 0` workaround when calling `listSessions()` internally, relying on the new default "no limit" behavior
+- [X] T027 [US2] Add integration test in tests/integration/search-sessions.test.ts — call `searchSessions()` without a limit on a dataset with 94+ sessions and verify matches are found in sessions beyond the former 50-session cap
+- [X] T028 [US2] Simplify `exportAllSessionsToJson()` and `exportAllSessionsToMarkdown()` in src/lib/export.ts — remove `limit: Number.MAX_SAFE_INTEGER` and `offset: 0` workaround when calling `listSessions()` internally, relying on the new default "no limit" behavior
+- [X] T029 [US2] Add integration test in tests/integration/export-sessions.test.ts — `exportAllSessionsToJson()` without a limit on a dataset with 94+ sessions exports all sessions beyond the former 50-session cap
+- [X] T030 [US2] Add integration test in tests/integration/export-sessions.test.ts — `exportAllSessionsToMarkdown()` without a limit on a dataset with 94+ sessions exports all sessions beyond the former 50-session cap
 
 ### Verification for User Story 2
 
-- [ ] T031 [US2] Run `npm test` and verify all US2 tests pass confirming backward compatibility and shared no-limit consistency
+- [X] T031 [US2] Run `npm test` and verify all US2 tests pass confirming backward compatibility and shared no-limit consistency
 
 **Checkpoint**: User Story 2 is verified. Explicit limit behavior is unchanged. `searchSessions()` and the export-all helpers honor the new no-limit default.
 
@@ -105,19 +105,19 @@
 
 ### Tests for User Story 3
 
-- [ ] T032 [US3] Update `registerListCommand()` and `executeList()` in src/cli/commands/list.ts — remove the implicit `'50'` default for `--limit`, make omitted `limit` optional, and only pass `limit` to the library when explicitly provided
-- [ ] T033 [US3] Add or update unit test in tests/unit/cli/commands/list.test.ts — `cch list` without `--limit` calls `listSessions()` without injecting a numeric `limit`
-- [ ] T034 [US3] Update `registerSearchCommand()` and `executeSearch()` in src/cli/commands/search.ts — remove the implicit `'20'` default for `--limit` in both cross-session and `--session` flows, make omitted `limit` optional, only pass `limit` to the library when explicitly provided, and update single-session manual pagination for the unlimited case
-- [ ] T035 [US3] Create unit test file tests/unit/cli/commands/search.test.ts — verify `cch search` without `--limit` calls `searchSessions()` without injecting a numeric `limit`, and `cch search --session` without `--limit` does not force the former 20-result cap
-- [ ] T036 [US3] Add or verify CLI integration test in tests/integration/cli/list.test.ts — `cch list` with no flags on 94+ sessions displays all sessions with no truncation at 50
-- [ ] T037 [US3] Add or verify CLI integration test in tests/integration/cli/list.test.ts — `cch list --limit 10` displays exactly 10 sessions
-- [ ] T038 [US3] Add or verify CLI integration test in tests/integration/cli/search.test.ts — `cch search "<query>"` with no `--limit` returns matches beyond the former 20-result cap
-- [ ] T039 [US3] Add or verify CLI integration test in tests/integration/cli/search.test.ts — `cch search "<query>" --limit 10` displays exactly 10 matches
-- [ ] T040 [US3] Add or verify CLI integration test in tests/integration/cli/search.test.ts — `cch search "<query>" --session <id>` with no `--limit` returns all matching results beyond the former 20-result cap
+- [X] T032 [US3] Update `registerListCommand()` and `executeList()` in src/cli/commands/list.ts — remove the implicit `'50'` default for `--limit`, make omitted `limit` optional, and only pass `limit` to the library when explicitly provided
+- [X] T033 [US3] Add or update unit test in tests/unit/cli/commands/list.test.ts — `cch list` without `--limit` calls `listSessions()` without injecting a numeric `limit`
+- [X] T034 [US3] Update `registerSearchCommand()` and `executeSearch()` in src/cli/commands/search.ts — remove the implicit `'20'` default for `--limit` in both cross-session and `--session` flows, make omitted `limit` optional, only pass `limit` to the library when explicitly provided, and update single-session manual pagination for the unlimited case
+- [X] T035 [US3] Create unit test file tests/unit/cli/commands/search.test.ts — verify `cch search` without `--limit` calls `searchSessions()` without injecting a numeric `limit`, and `cch search --session` without `--limit` does not force the former 20-result cap
+- [X] T036 [US3] Add or verify CLI integration test in tests/integration/cli/list.test.ts — `cch list` with no flags on 94+ sessions displays all sessions with no truncation at 50
+- [X] T037 [US3] Add or verify CLI integration test in tests/integration/cli/list.test.ts — `cch list --limit 10` displays exactly 10 sessions
+- [X] T038 [US3] Add or verify CLI integration test in tests/integration/cli/search.test.ts — `cch search "<query>"` with no `--limit` returns matches beyond the former 20-result cap
+- [X] T039 [US3] Add or verify CLI integration test in tests/integration/cli/search.test.ts — `cch search "<query>" --limit 10` displays exactly 10 matches
+- [X] T040 [US3] Add or verify CLI integration test in tests/integration/cli/search.test.ts — `cch search "<query>" --session <id>` with no `--limit` returns all matching results beyond the former 20-result cap
 
 ### Verification for User Story 3
 
-- [ ] T041 [US3] Run `npm test` and verify all US3 tests pass confirming CLI defaults align with the library
+- [X] T041 [US3] Run `npm test` and verify all US3 tests pass confirming CLI defaults align with the library
 
 **Checkpoint**: All three user stories are independently functional and tested.
 
@@ -127,10 +127,10 @@
 
 **Purpose**: Edge cases and final validation across all stories
 
-- [ ] T042 [P] Add edge case unit test in tests/unit/config.test.ts — `resolveConfig({ limit: 0 })` returns `limit: 0` (zero sessions)
-- [ ] T043 [P] Add edge case integration test in tests/integration/list-sessions.test.ts — `listSessions()` on empty data directory with no limit returns empty result with `pagination.total === 0`
-- [ ] T044 [P] Add edge case integration test in tests/integration/list-sessions.test.ts — `listSessions({ offset: 200 })` on 94 sessions returns empty result with `pagination.hasMore === false`
-- [ ] T045 Run full validation: `npm run typecheck && npm run test:coverage && npm run lint` — all must pass, including library coverage thresholds
+- [X] T042 [P] Add edge case unit test in tests/unit/config.test.ts — `resolveConfig({ limit: 0 })` returns `limit: 0` (zero sessions)
+- [X] T043 [P] Add edge case integration test in tests/integration/list-sessions.test.ts — `listSessions()` on empty data directory with no limit returns empty result with `pagination.total === 0`
+- [X] T044 [P] Add edge case integration test in tests/integration/list-sessions.test.ts — `listSessions({ offset: 200 })` on 94 sessions returns empty result with `pagination.hasMore === false`
+- [X] T045 Run full validation: `npm run typecheck && npm run test:coverage && npm run lint` — all must pass, including library coverage thresholds
 
 ---
 

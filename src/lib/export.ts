@@ -58,8 +58,6 @@ export async function exportAllSessionsToJson(config?: LibraryConfig): Promise<s
   const sessionsResult = await listSessions({
     dataPath: resolved.dataPath,
     workspace: resolved.workspace,
-    limit: Number.MAX_SAFE_INTEGER,
-    offset: 0,
   });
 
   const sessions: Session[] = [];
@@ -240,8 +238,6 @@ export async function exportAllSessionsToMarkdown(config?: LibraryConfig): Promi
   const sessionsResult = await listSessions({
     dataPath: resolved.dataPath,
     workspace: resolved.workspace,
-    limit: Number.MAX_SAFE_INTEGER,
-    offset: 0,
   });
 
   const sessionMarkdowns: string[] = [];

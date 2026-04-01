@@ -18,7 +18,7 @@ export interface LibraryConfig {
   /** Filter sessions by workspace/project path. */
   workspace?: string;
 
-  /** Maximum number of results to return. Default: 50 */
+  /** Maximum number of results to return. When omitted or undefined, all results are returned. */
   limit?: number;
 
   /** Number of results to skip (for pagination). Default: 0 */

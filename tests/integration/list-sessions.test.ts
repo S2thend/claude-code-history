@@ -7,7 +7,53 @@ import { mkdir, writeFile, rm } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { listSessions } from '../../src/lib/session.js';
+import { DEFAULT_CONFIG } from '../../src/lib/config.js';
 import { DataNotFoundError } from '../../src/lib/errors.js';
+
+function createBulkSessionJson(
+  sessionId: string,
+  projectPath: string,
+  summary: string,
+  timestamp: string
+): string {
+  return [
+    JSON.stringify({
+      type: 'summary',
+      summary,
+      leafUuid: `${sessionId}-assistant`,
+    }),
+    JSON.stringify({
+      type: 'user',
+      uuid: `${sessionId}-user`,
+      parentUuid: null,
+      timestamp,
+      sessionId,
+      cwd: projectPath,
+      gitBranch: 'main',
+      version: '2.0.55',
+      message: {
+        role: 'user',
+        content: `Prompt for ${summary}`,
+      },
+    }),
+    JSON.stringify({
+      type: 'assistant',
+      uuid: `${sessionId}-assistant`,
+      parentUuid: `${sessionId}-user`,
+      timestamp,
+      sessionId,
+      message: {
+        role: 'assistant',
+        model: 'claude-opus-4-5-20251101',
+        content: [{ type: 'text', text: `Response for ${summary}` }],
+      },
+    }),
+  ].join('\n');
+}
+
+function createBulkSessionId(index: number): string {
+  return `aaaaaaaa-bbbb-cccc-dddd-${(index + 1).toString(16).padStart(12, '0')}`;
+}
 
 describe('listSessions', () => {
   const testDataPath = join(tmpdir(), `claude-test-${Date.now()}`);
@@ -148,5 +194,110 @@ describe('listSessions', () => {
     expect(result.pagination.total).toBe(0);
 
     await rm(emptyPath, { recursive: true, force: true });
+  });
+});
+
+describe('listSessions unlimited behavior', () => {
+  const originalDefaultDataPath = DEFAULT_CONFIG.dataPath;
+  const testDataPath = join(tmpdir(), `claude-list-unlimited-${Date.now()}`);
+  const projectsPath = join(testDataPath, 'projects');
+  const totalSessions = 94;
+
+  beforeAll(async () => {
+    DEFAULT_CONFIG.dataPath = testDataPath;
+
+    const projectDir = join(projectsPath, '-test-large-project');
+    await mkdir(projectDir, { recursive: true });
+
+    const writes: Promise<void>[] = [];
+    for (let i = 0; i < totalSessions; i++) {
+      const sessionId = createBulkSessionId(i);
+      const timestamp = new Date(Date.UTC(2025, 0, 1, 0, i, 0)).toISOString();
+      writes.push(
+        writeFile(
+          join(projectDir, `${sessionId}.jsonl`),
+          createBulkSessionJson(sessionId, '/test/large-project', `Bulk session ${i}`, timestamp)
+        )
+      );
+    }
+
+    await Promise.all(writes);
+  });
+
+  afterAll(async () => {
+    DEFAULT_CONFIG.dataPath = originalDefaultDataPath;
+    await rm(testDataPath, { recursive: true, force: true });
+  });
+
+  it('should return all sessions when no config is provided on a 94-session fixture', async () => {
+    const result = await listSessions();
+
+    expect(result.data).toHaveLength(totalSessions);
+    expect(result.pagination.total).toBe(totalSessions);
+    expect(result.pagination.limit).toBe(totalSessions);
+    expect(result.pagination.offset).toBe(0);
+    expect(result.pagination.hasMore).toBe(false);
+  });
+
+  it('should return all sessions when an empty config object is provided on a 94-session fixture', async () => {
+    const result = await listSessions({});
+
+    expect(result.data).toHaveLength(totalSessions);
+    expect(result.pagination.total).toBe(totalSessions);
+    expect(result.pagination.limit).toBe(totalSessions);
+    expect(result.pagination.offset).toBe(0);
+    expect(result.pagination.hasMore).toBe(false);
+  });
+
+  it('should treat explicit undefined limit the same as omitted limit on a 94-session fixture', async () => {
+    const result = await listSessions({ limit: undefined });
+
+    expect(result.data).toHaveLength(totalSessions);
+    expect(result.pagination.total).toBe(totalSessions);
+    expect(result.pagination.limit).toBe(totalSessions);
+    expect(result.pagination.offset).toBe(0);
+    expect(result.pagination.hasMore).toBe(false);
+  });
+
+  it('should return all sessions from the offset onward when only offset is provided', async () => {
+    const allSessions = await listSessions();
+    const result = await listSessions({ offset: 10 });
+
+    expect(result.data).toHaveLength(totalSessions - 10);
+    expect(result.pagination.total).toBe(totalSessions);
+    expect(result.pagination.limit).toBe(totalSessions - 10);
+    expect(result.pagination.offset).toBe(10);
+    expect(result.pagination.hasMore).toBe(false);
+    expect(result.data[0]?.id).toBe(allSessions.data[10]?.id);
+  });
+
+  it('should continue to respect an explicit limit on a 94-session fixture', async () => {
+    const result = await listSessions({ limit: 20 });
+
+    expect(result.data).toHaveLength(20);
+    expect(result.pagination.total).toBe(totalSessions);
+    expect(result.pagination.limit).toBe(20);
+    expect(result.pagination.offset).toBe(0);
+    expect(result.pagination.hasMore).toBe(true);
+  });
+
+  it('should continue to respect an explicit limit with offset near the end of a 94-session fixture', async () => {
+    const result = await listSessions({ limit: 20, offset: 80 });
+
+    expect(result.data).toHaveLength(14);
+    expect(result.pagination.total).toBe(totalSessions);
+    expect(result.pagination.limit).toBe(20);
+    expect(result.pagination.offset).toBe(80);
+    expect(result.pagination.hasMore).toBe(false);
+  });
+
+  it('should return an empty result when offset exceeds total and no limit is provided', async () => {
+    const result = await listSessions({ offset: 200 });
+
+    expect(result.data).toEqual([]);
+    expect(result.pagination.total).toBe(totalSessions);
+    expect(result.pagination.limit).toBe(0);
+    expect(result.pagination.offset).toBe(200);
+    expect(result.pagination.hasMore).toBe(false);
   });
 });

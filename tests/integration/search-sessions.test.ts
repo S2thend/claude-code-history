@@ -8,6 +8,53 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { searchSessions, searchInSession } from '../../src/lib/search.js';
 
+function createLargeSessionId(index: number): string {
+  return `bbbbbbbb-cccc-dddd-eeee-${(index + 1).toString(16).padStart(12, '0')}`;
+}
+
+function createLargeSearchSessionJson(
+  sessionId: string,
+  projectPath: string,
+  summary: string,
+  timestamp: string,
+  content: string
+): string {
+  return [
+    JSON.stringify({
+      type: 'summary',
+      summary,
+      leafUuid: `${sessionId}-assistant`,
+    }),
+    JSON.stringify({
+      type: 'user',
+      uuid: `${sessionId}-user`,
+      parentUuid: null,
+      timestamp,
+      sessionId,
+      cwd: projectPath,
+      gitBranch: 'main',
+      version: '2.0.55',
+      message: {
+        role: 'user',
+        content,
+      },
+    }),
+    JSON.stringify({
+      type: 'assistant',
+      uuid: `${sessionId}-assistant`,
+      parentUuid: `${sessionId}-user`,
+      timestamp,
+      sessionId,
+      message: {
+        model: 'claude-opus-4-5-20251101',
+        role: 'assistant',
+        content: [{ type: 'text', text: `Response for ${summary}` }],
+        stop_reason: 'end_turn',
+      },
+    }),
+  ].join('\n');
+}
+
 describe('searchSessions', () => {
   const testDataPath = join(tmpdir(), `claude-search-test-${Date.now()}`);
   const projectsPath = join(testDataPath, 'projects');
@@ -263,5 +310,59 @@ describe('searchInSession', () => {
     });
 
     expect(matches).toEqual([]);
+  });
+});
+
+describe('searchSessions unlimited behavior', () => {
+  const testDataPath = join(tmpdir(), `claude-search-unlimited-${Date.now()}`);
+  const projectsPath = join(testDataPath, 'projects');
+  const totalSessions = 94;
+  const query = 'needle-beyond-fifty';
+  const matchingIndices = [70, 80, 90];
+  const expectedSessionIds = new Set(matchingIndices.map((index) => createLargeSessionId(index)));
+
+  beforeAll(async () => {
+    const projectDir = join(projectsPath, '-test-large-search-project');
+    await mkdir(projectDir, { recursive: true });
+
+    const writes: Promise<void>[] = [];
+    for (let i = 0; i < totalSessions; i++) {
+      const sessionId = createLargeSessionId(i);
+      const timestamp = new Date(Date.UTC(2025, 0, 1, 0, i, 0)).toISOString();
+      const content = matchingIndices.includes(i)
+        ? `This session contains ${query}`
+        : `This session does not contain the target query ${i}`;
+      writes.push(
+        writeFile(
+          join(projectDir, `${sessionId}.jsonl`),
+          createLargeSearchSessionJson(
+            sessionId,
+            '/test/large-search-project',
+            `Large search session ${i}`,
+            timestamp,
+            content
+          )
+        )
+      );
+    }
+
+    await Promise.all(writes);
+  });
+
+  afterAll(async () => {
+    await rm(testDataPath, { recursive: true, force: true });
+  });
+
+  it('should find matches in sessions beyond the former 50-session cap when limit is omitted', async () => {
+    const result = await searchSessions(query, { dataPath: testDataPath });
+
+    expect(result.data).toHaveLength(matchingIndices.length);
+    expect(result.pagination.total).toBe(matchingIndices.length);
+    expect(result.pagination.limit).toBe(matchingIndices.length);
+    expect(result.pagination.offset).toBe(0);
+    expect(result.pagination.hasMore).toBe(false);
+
+    const matchedSessionIds = new Set(result.data.map((match) => match.sessionId));
+    expect(matchedSessionIds).toEqual(expectedSessionIds);
   });
 });

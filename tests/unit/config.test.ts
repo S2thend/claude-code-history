@@ -7,7 +7,7 @@ import { DEFAULT_CONFIG, resolveConfig, paginate, createPagination } from '../..
 
 describe('DEFAULT_CONFIG', () => {
   it('should have expected default values', () => {
-    expect(DEFAULT_CONFIG.limit).toBe(50);
+    expect(DEFAULT_CONFIG).not.toHaveProperty('limit');
     expect(DEFAULT_CONFIG.offset).toBe(0);
     expect(DEFAULT_CONFIG.context).toBe(2);
     expect(DEFAULT_CONFIG.workspace).toBe(undefined);
@@ -19,7 +19,25 @@ describe('resolveConfig', () => {
   it('should return defaults when no config provided', () => {
     const resolved = resolveConfig();
 
-    expect(resolved.limit).toBe(50);
+    expect(resolved.limit).toBe(undefined);
+    expect(resolved.offset).toBe(0);
+    expect(resolved.context).toBe(2);
+    expect(resolved.workspace).toBe(undefined);
+  });
+
+  it('should return undefined limit for empty config object', () => {
+    const resolved = resolveConfig({});
+
+    expect(resolved.limit).toBe(undefined);
+    expect(resolved.offset).toBe(0);
+    expect(resolved.context).toBe(2);
+    expect(resolved.workspace).toBe(undefined);
+  });
+
+  it('should treat explicit undefined limit the same as omitted limit', () => {
+    const resolved = resolveConfig({ limit: undefined });
+
+    expect(resolved.limit).toBe(undefined);
     expect(resolved.offset).toBe(0);
     expect(resolved.context).toBe(2);
     expect(resolved.workspace).toBe(undefined);
@@ -32,6 +50,12 @@ describe('resolveConfig', () => {
     expect(resolved.workspace).toBe('/test');
     expect(resolved.offset).toBe(0); // default
     expect(resolved.context).toBe(2); // default
+  });
+
+  it('should return an explicit numeric limit unchanged', () => {
+    const resolved = resolveConfig({ limit: 20 });
+
+    expect(resolved.limit).toBe(20);
   });
 
   it('should allow overriding all options', () => {
@@ -115,6 +139,23 @@ describe('paginate', () => {
 
     expect(result).toEqual(items);
   });
+
+  it('should return exactly 20 items when limit is 20 on a 94-item array', () => {
+    const ninetyFourItems = Array.from({ length: 94 }, (_, index) => index);
+    const config = resolveConfig({ limit: 20 });
+    const result = paginate(ninetyFourItems, config);
+
+    expect(result).toHaveLength(20);
+    expect(result[0]).toBe(0);
+    expect(result[19]).toBe(19);
+  });
+
+  it('should return all items from offset onward when limit is undefined', () => {
+    const config = resolveConfig({ offset: 2 });
+    const result = paginate(items, config);
+
+    expect(result).toEqual(['c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']);
+  });
 });
 
 describe('createPagination', () => {
@@ -124,6 +165,16 @@ describe('createPagination', () => {
 
     expect(pagination.total).toBe(100);
     expect(pagination.limit).toBe(10);
+    expect(pagination.offset).toBe(0);
+    expect(pagination.hasMore).toBe(true);
+  });
+
+  it('should set hasMore to true for limit 20 with total 94', () => {
+    const config = resolveConfig({ limit: 20, offset: 0 });
+    const pagination = createPagination(94, config);
+
+    expect(pagination.total).toBe(94);
+    expect(pagination.limit).toBe(20);
     expect(pagination.offset).toBe(0);
     expect(pagination.hasMore).toBe(true);
   });
@@ -154,6 +205,16 @@ describe('createPagination', () => {
     const config = resolveConfig({ limit: 10, offset: 0 });
     const pagination = createPagination(10, config);
 
+    expect(pagination.hasMore).toBe(false);
+  });
+
+  it('should report all remaining items when limit is undefined', () => {
+    const config = resolveConfig({ offset: 2 });
+    const pagination = createPagination(10, config);
+
+    expect(pagination.total).toBe(10);
+    expect(pagination.limit).toBe(8);
+    expect(pagination.offset).toBe(2);
     expect(pagination.hasMore).toBe(false);
   });
 });
