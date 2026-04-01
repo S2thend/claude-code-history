@@ -214,8 +214,6 @@ export async function searchSessions(
   const sessionsResult = await listSessions({
     dataPath: resolved.dataPath,
     workspace: resolved.workspace,
-    limit: Number.MAX_SAFE_INTEGER,
-    offset: 0,
   });
 
   // Search each session

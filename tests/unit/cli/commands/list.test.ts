@@ -207,4 +207,17 @@ describe('list command', () => {
       })
     );
   });
+
+  it('should not inject a numeric limit when --limit is omitted', async () => {
+    vi.mocked(listSessions).mockResolvedValue({
+      data: [],
+      pagination: { total: 0, limit: 0, offset: 0, hasMore: false },
+    });
+
+    await program.parseAsync(['node', 'test', 'list']);
+
+    const config = vi.mocked(listSessions).mock.calls[0]?.[0];
+    expect(config).toEqual(expect.objectContaining({ offset: 0 }));
+    expect(Object.prototype.hasOwnProperty.call(config, 'limit')).toBe(false);
+  });
 });

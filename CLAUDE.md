@@ -10,6 +10,8 @@ Auto-generated from all feature plans. Last updated: 2025-12-31
 - Reads Claude Code JSONL session files from `~/.claude/projects/` (004-list-project-details)
 - TypeScript 5.x with strict mode enabled + Commander.js (CLI), Node.js built-ins (fs, path, readline) (005-complete-token-stats)
 - N/A (reads from Claude Code's `~/.claude/projects/` via existing lib layer) (005-complete-token-stats)
+- TypeScript 5.3+ with strict mode (ES2022 target) + Commander.js ^14.0.2 (CLI framework), Node.js built-ins (fs, path, readline) (006-optional-api-limit)
+- Reads JSONL session files from `~/.claude/projects/` (no database) (006-optional-api-limit)
 
 - TypeScript 5.x with strict mode enabled + Node.js built-ins (fs, path, os, readline); minimal external deps (001-core-lib)
 
@@ -75,9 +77,9 @@ cch -f view 0                        # Full output (no paging)
 TypeScript 5.x with strict mode enabled: Follow standard conventions
 
 ## Recent Changes
+- 006-optional-api-limit: Added TypeScript 5.3+ with strict mode (ES2022 target) + Commander.js ^14.0.2 (CLI framework), Node.js built-ins (fs, path, readline)
 - 005-complete-token-stats: Added TypeScript 5.x with strict mode enabled + Commander.js (CLI), Node.js built-ins (fs, path, readline)
 - 004-list-project-details: Added TypeScript 5.3+ with strict mode (ES2022 target) + Commander.js (CLI), Node.js built-ins (fs, path, readline)
-- 003-message-type-filter: Added TypeScript 5.x with strict mode enabled + Commander.js (CLI framework), Node.js built-ins
 
 
 <!-- MANUAL ADDITIONS START -->

@@ -30,7 +30,7 @@ import { outputWithPager } from '../formatters/pager.js';
 interface SearchOptions extends GlobalOptions {
   session?: string;
   context: string;
-  limit: string;
+  limit?: string;
   offset: string;
 }
 
@@ -43,13 +43,13 @@ async function executeSearch(
 ): Promise<void> {
   const config = resolveConfig(options);
   const contextLines = parseInt(options.context, 10) || 2;
-  const limit = parseInt(options.limit, 10) || 20;
+  const limit = options.limit !== undefined ? parseInt(options.limit, 10) : undefined;
   const offset = parseInt(options.offset, 10) || 0;
 
   const libConfig = toLibraryConfig(config, {
     context: contextLines,
-    limit,
     offset,
+    ...(limit !== undefined ? { limit } : {}),
   });
 
   try {
@@ -60,12 +60,13 @@ async function executeSearch(
 
       // Manual pagination for single session search
       const total = matches.length;
-      const paginatedMatches = matches.slice(offset, offset + limit);
+      const paginatedMatches =
+        limit === undefined ? matches.slice(offset) : matches.slice(offset, offset + limit);
       const pagination = {
         total,
         offset,
-        limit,
-        hasMore: offset + limit < total,
+        limit: limit ?? Math.max(0, total - offset),
+        hasMore: limit === undefined ? false : offset + limit < total,
       };
 
       if (options.json) {
@@ -124,7 +125,7 @@ export function registerSearchCommand(program: Command): void {
     .description('Search for text across sessions')
     .option('-s, --session <session>', 'Search within a specific session (index or UUID)')
     .option('-c, --context <lines>', 'Number of context lines around matches', '2')
-    .option('-l, --limit <count>', 'Maximum number of results', '20')
+    .option('-l, --limit <count>', 'Maximum number of results')
     .option('-o, --offset <count>', 'Skip first N results', '0')
     .action(async (query: string, cmdOptions: Omit<SearchOptions, keyof GlobalOptions>) => {
       const globalOptions = program.opts() as GlobalOptions;

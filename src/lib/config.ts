@@ -6,13 +6,14 @@ import type { LibraryConfig } from './types.js';
 import { getDefaultDataPath } from './platform.js';
 
 /** Default configuration values */
-export const DEFAULT_CONFIG: Required<Omit<LibraryConfig, 'dataPath' | 'workspace'>> & {
+export const DEFAULT_CONFIG: {
   dataPath: string;
   workspace: undefined;
+  offset: number;
+  context: number;
 } = {
   dataPath: getDefaultDataPath(),
   workspace: undefined,
-  limit: 50,
   offset: 0,
   context: 2,
 };
@@ -23,7 +24,7 @@ export const DEFAULT_CONFIG: Required<Omit<LibraryConfig, 'dataPath' | 'workspac
 export interface ResolvedConfig {
   dataPath: string;
   workspace: string | undefined;
-  limit: number;
+  limit: number | undefined;
   offset: number;
   context: number;
 }
@@ -37,13 +38,13 @@ export function resolveConfig(config?: LibraryConfig): ResolvedConfig {
   const resolved: ResolvedConfig = {
     dataPath: config?.dataPath ?? DEFAULT_CONFIG.dataPath,
     workspace: config?.workspace,
-    limit: config?.limit ?? DEFAULT_CONFIG.limit,
+    limit: config?.limit,
     offset: config?.offset ?? DEFAULT_CONFIG.offset,
     context: config?.context ?? DEFAULT_CONFIG.context,
   };
 
   // Validate numeric values
-  if (resolved.limit < 0) {
+  if (resolved.limit !== undefined && resolved.limit < 0) {
     throw new Error('limit must be non-negative');
   }
   if (resolved.offset < 0) {
@@ -63,6 +64,9 @@ export function resolveConfig(config?: LibraryConfig): ResolvedConfig {
  * @returns Paginated slice of items
  */
 export function paginate<T>(items: T[], config: ResolvedConfig): T[] {
+  if (config.limit === undefined) {
+    return items.slice(config.offset);
+  }
   return items.slice(config.offset, config.offset + config.limit);
 }
 
@@ -75,6 +79,15 @@ export function createPagination(
   total: number,
   config: ResolvedConfig
 ): { total: number; limit: number; offset: number; hasMore: boolean } {
+  if (config.limit === undefined) {
+    return {
+      total,
+      limit: Math.max(0, total - config.offset),
+      offset: config.offset,
+      hasMore: false,
+    };
+  }
+
   return {
     total,
     limit: config.limit,

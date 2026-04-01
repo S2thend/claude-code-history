@@ -15,6 +15,58 @@ import {
   exportAllSessions,
 } from '../../src/lib/export.js';
 
+function createLargeExportSessionId(index: number): string {
+  return `cccccccc-dddd-eeee-ffff-${(index + 1).toString(16).padStart(12, '0')}`;
+}
+
+function createLargeExportSessionJson(
+  sessionId: string,
+  projectPath: string,
+  summary: string,
+  timestamp: string
+): string {
+  return [
+    JSON.stringify({
+      type: 'summary',
+      summary,
+      leafUuid: `${sessionId}-assistant`,
+    }),
+    JSON.stringify({
+      type: 'user',
+      uuid: `${sessionId}-user`,
+      parentUuid: null,
+      timestamp,
+      sessionId,
+      cwd: projectPath,
+      gitBranch: 'main',
+      version: '2.0.55',
+      message: {
+        role: 'user',
+        content: `Prompt for ${summary}`,
+      },
+    }),
+    JSON.stringify({
+      type: 'assistant',
+      uuid: `${sessionId}-assistant`,
+      parentUuid: `${sessionId}-user`,
+      timestamp,
+      sessionId,
+      message: {
+        model: 'claude-opus-4-5-20251101',
+        role: 'assistant',
+        content: [{ type: 'text', text: `Response for ${summary}` }],
+        stop_reason: 'end_turn',
+        usage: {
+          input_tokens: 1,
+          output_tokens: 1,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+        },
+      },
+    }),
+  ].join('\n');
+}
+
 describe('export functions', () => {
   const testDataPath = join(tmpdir(), `claude-export-test-${Date.now()}`);
   const projectsPath = join(testDataPath, 'projects');
@@ -252,5 +304,58 @@ describe('export functions', () => {
 
       expect(result).toContain('---');
     });
+  });
+});
+
+describe('export all unlimited behavior', () => {
+  const testDataPath = join(tmpdir(), `claude-export-unlimited-${Date.now()}`);
+  const projectsPath = join(testDataPath, 'projects');
+  const totalSessions = 94;
+  const finalSummary = `Bulk export session ${totalSessions - 1}`;
+
+  beforeAll(async () => {
+    const projectDir = join(projectsPath, '-test-large-export-project');
+    await mkdir(projectDir, { recursive: true });
+
+    const writes: Promise<void>[] = [];
+    for (let i = 0; i < totalSessions; i++) {
+      const sessionId = createLargeExportSessionId(i);
+      const timestamp = new Date(Date.UTC(2025, 0, 1, 0, i, 0)).toISOString();
+      writes.push(
+        writeFile(
+          join(projectDir, `${sessionId}.jsonl`),
+          createLargeExportSessionJson(
+            sessionId,
+            '/test/large-export-project',
+            `Bulk export session ${i}`,
+            timestamp
+          )
+        )
+      );
+    }
+
+    await Promise.all(writes);
+  });
+
+  afterAll(async () => {
+    await rm(testDataPath, { recursive: true, force: true });
+  });
+
+  it('should export all sessions to JSON when limit is omitted on a 94-session fixture', async () => {
+    const json = await exportAllSessionsToJson({ dataPath: testDataPath });
+    const sessions = JSON.parse(json) as { id: string; summary: string | null }[];
+
+    expect(sessions).toHaveLength(totalSessions);
+    expect(sessions.some((session) => session.summary === finalSummary)).toBe(true);
+    expect(sessions.some((session) => session.id === createLargeExportSessionId(totalSessions - 1))).toBe(
+      true
+    );
+  });
+
+  it('should export all sessions to Markdown when limit is omitted on a 94-session fixture', async () => {
+    const markdown = await exportAllSessionsToMarkdown({ dataPath: testDataPath });
+
+    expect(markdown).toContain(`# ${finalSummary}`);
+    expect(markdown.match(/^# Bulk export session /gm)).toHaveLength(totalSessions);
   });
 });

@@ -352,6 +352,63 @@ describe('cch search', () => {
     });
   });
 
+  describe('omitted --limit alignment', () => {
+    it('should return matches beyond the former 20-result cap when limit is omitted', () => {
+      for (let i = 0; i < 25; i++) {
+        createTestSession(`/Users/dev/search-project-${i}`, `session-${i}`, [
+          { type: 'user', content: `needle result ${i}` },
+        ]);
+      }
+
+      const { stdout, exitCode } = runCli('search "needle" --json');
+      const json = JSON.parse(stdout);
+
+      expect(exitCode).toBe(0);
+      expect(json.data.matches).toHaveLength(25);
+      expect(json.data.pagination.total).toBe(25);
+      expect(json.data.pagination.limit).toBe(25);
+      expect(json.data.pagination.hasMore).toBe(false);
+    });
+
+    it('should display exactly 10 matches when --limit 10 is provided', () => {
+      for (let i = 0; i < 25; i++) {
+        createTestSession(`/Users/dev/search-limit-${i}`, `session-${i}`, [
+          { type: 'user', content: `limit-needle result ${i}` },
+        ]);
+      }
+
+      const { stdout, exitCode } = runCli('search "limit-needle" --limit 10 --json');
+      const json = JSON.parse(stdout);
+
+      expect(exitCode).toBe(0);
+      expect(json.data.matches).toHaveLength(10);
+      expect(json.data.pagination.limit).toBe(10);
+      expect(json.data.pagination.hasMore).toBe(true);
+    });
+
+    it('should return all matching results within a single session when limit is omitted', () => {
+      const sessionId = createTestSession(
+        '/Users/dev/search-single-session',
+        'session-many-matches',
+        Array.from({ length: 25 }, (_, index) => ({
+          type: 'user',
+          content: `single-session-needle line ${index}`,
+        }))
+      );
+
+      const { stdout, exitCode } = runCli(
+        `search "single-session-needle" --session ${sessionId} --json`
+      );
+      const json = JSON.parse(stdout);
+
+      expect(exitCode).toBe(0);
+      expect(json.data.matches).toHaveLength(25);
+      expect(json.data.pagination.total).toBe(25);
+      expect(json.data.pagination.limit).toBe(25);
+      expect(json.data.pagination.hasMore).toBe(false);
+    });
+  });
+
   describe('error handling', () => {
     it('should handle invalid data path gracefully', () => {
       const { exitCode } = runCli('search "test"', '/nonexistent/path');

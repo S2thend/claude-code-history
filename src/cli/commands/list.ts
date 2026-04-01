@@ -39,7 +39,7 @@ import { outputWithPager } from '../formatters/pager.js';
  */
 interface ListOptions extends GlobalOptions {
   workspace?: string;
-  limit: string;
+  limit?: string;
   offset: string;
   stats?: boolean;
 }
@@ -49,13 +49,13 @@ interface ListOptions extends GlobalOptions {
  */
 async function executeList(options: ListOptions): Promise<void> {
   const config = resolveConfig(options);
-  const limit = parseInt(options.limit, 10);
+  const limit = options.limit !== undefined ? parseInt(options.limit, 10) : undefined;
   const offset = parseInt(options.offset, 10);
 
   const libConfig = toLibraryConfig(config, {
     workspace: options.workspace,
-    limit,
     offset,
+    ...(limit !== undefined ? { limit } : {}),
   });
 
   try {
@@ -127,7 +127,7 @@ export function registerListCommand(program: Command): void {
     .command('list')
     .description('List all sessions')
     .option('-w, --workspace <path>', 'Filter by workspace/project path')
-    .option('-l, --limit <number>', 'Maximum number of sessions to display', '50')
+    .option('-l, --limit <number>', 'Maximum number of sessions to display')
     .option('-o, --offset <number>', 'Number of sessions to skip', '0')
     .option('-s, --stats', 'Show aggregate token statistics')
     .action(async (cmdOptions: Omit<ListOptions, keyof GlobalOptions>) => {
