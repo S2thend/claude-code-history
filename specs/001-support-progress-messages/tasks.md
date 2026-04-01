@@ -3,7 +3,7 @@
 **Input**: Design documents from `/specs/001-support-progress-messages/`
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md), [data-model.md](./data-model.md), [contracts/](./contracts/)
 
-**Tests**: The feature spec does not request TDD-style test-first implementation, so story phases focus on implementation. Regression coverage is captured in the final polish phase to satisfy project standards.
+**Tests**: The feature spec does not request TDD-style test-first implementation, so implementation can precede tests within a phase. Each user story phase still includes explicit validation tasks so every increment remains independently testable.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and validation of each increment.
 
@@ -34,9 +34,10 @@
 **⚠️ CRITICAL**: No user story work should begin until this phase is complete.
 
 - [ ] T002 Add `ProgressMessage`, `ProgressContent`, widened `MessageType`, and widened `SearchMatch` definitions in `src/lib/types.ts`
-- [ ] T003 Implement raw `type: "progress"` normalization and displayable-message metadata handling in `src/lib/parser.ts`
+- [ ] T003 Implement raw `type: "progress"` normalization and full-fidelity metadata preservation in `src/lib/parser.ts`
 - [ ] T004 Update session retrieval counts and activity timestamps to treat progress as displayable transcript content in `src/lib/session.ts`
 - [ ] T005 Re-export progress-related public types from `src/lib/index.ts`
+- [ ] T006 Add foundational parser regression coverage for readable, empty, and non-readable progress entries in `tests/unit/parser.test.ts`
 
 **Checkpoint**: The library can now preserve progress entries in parsed session data, with progress counted as displayable transcript content.
 
@@ -50,8 +51,9 @@
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Extend searchable progress-text extraction and match typing in `src/lib/search.ts`
-- [ ] T007 [US1] Surface `PROGRESS` search result labels in `src/cli/formatters/search.ts`
+- [ ] T007 [US1] Extend searchable progress-text extraction and match typing in `src/lib/search.ts`
+- [ ] T008 [US1] Surface `PROGRESS` search result labels in `src/cli/formatters/search.ts`
+- [ ] T009 [US1] Validate progress-only search results, session-scoped search, empty/non-readable search handling, and the 100+ message performance target in `tests/integration/search-sessions.test.ts` and `tests/integration/cli/search.test.ts`
 
 **Checkpoint**: User Story 1 is complete when progress-only terms become searchable through the existing CLI and library search flows.
 
@@ -65,9 +67,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T008 [US2] Render progress transcript blocks distinctly in `src/cli/formatters/session.ts`
-- [ ] T009 [US2] Keep `cch view` message totals and JSON filtered counts aligned with progress displayability in `src/cli/commands/view.ts`
-- [ ] T010 [US2] Preserve progress transcript entries in Markdown export rendering in `src/lib/export.ts`
+- [ ] T010 [US2] Render progress transcript blocks distinctly while surfacing preserved progress metadata in `src/cli/formatters/session.ts`
+- [ ] T011 [US2] Keep `cch view` message totals and JSON filtered counts aligned with progress displayability and fidelity in `src/cli/commands/view.ts`
+- [ ] T012 [US2] Preserve full-fidelity progress entries in JSON and Markdown export rendering in `src/lib/export.ts`
+- [ ] T013 [US2] Validate session retrieval, human-readable view rendering, JSON view output, export fidelity, and empty/non-readable progress handling in `tests/integration/get-session.test.ts`, `tests/unit/cli/formatters/session.test.ts`, `tests/integration/cli/view.test.ts`, and `tests/integration/export-sessions.test.ts`
 
 **Checkpoint**: User Story 2 is complete when session views and transcript-style export no longer omit progress messages.
 
@@ -81,10 +84,11 @@
 
 ### Implementation for User Story 3
 
-- [ ] T011 [US3] Add `progress` to filter type definitions and valid filter values in `src/lib/types.ts`
-- [ ] T012 [US3] Classify and retain progress messages during filtered session views in `src/lib/session.ts`
-- [ ] T013 [US3] Accept `progress` in view filter parsing and help text in `src/cli/commands/view.ts`
-- [ ] T014 [US3] Show progress-only filtered states and empty-result messaging in `src/cli/formatters/session.ts`
+- [ ] T014 [US3] Add `progress` to filter type definitions and valid filter values in `src/lib/types.ts`
+- [ ] T015 [US3] Classify and retain progress messages during filtered session views in `src/lib/session.ts`
+- [ ] T016 [US3] Accept `progress` in view filter parsing and help text in `src/cli/commands/view.ts`
+- [ ] T017 [US3] Show progress-only filtered states and empty-result messaging in `src/cli/formatters/session.ts`
+- [ ] T018 [US3] Validate dedicated progress filtering, filtered counts, and empty/non-readable filtered output behavior in `tests/unit/cli/commands/view.test.ts` and `tests/integration/cli/view.test.ts`
 
 **Checkpoint**: User Story 3 is complete when progress messages can be isolated or combined with other filter values without breaking transcript output.
 
@@ -92,12 +96,11 @@
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-**Purpose**: Lock in regression coverage, update documentation, and validate the end-to-end feature.
+**Purpose**: Lock in shared regression coverage, update documentation, and validate the end-to-end feature.
 
-- [ ] T015 [P] Add parser and session regression coverage for progress messages in `tests/unit/parser.test.ts` and `tests/unit/session.test.ts`
-- [ ] T016 [P] Add search, view, and export regression coverage for progress messages in `tests/integration/search-sessions.test.ts`, `tests/integration/cli/search.test.ts`, `tests/integration/cli/view.test.ts`, and `tests/integration/export-sessions.test.ts`
-- [ ] T017 Update progress-aware command examples and behavior notes in `README.md`
-- [ ] T018 Run the implementation verification steps documented in `specs/001-support-progress-messages/quickstart.md`
+- [ ] T019 [P] Add shared session-count and transcript-order regression coverage for progress messages in `tests/unit/session.test.ts`
+- [ ] T020 [P] Update progress-aware command examples, fidelity guarantees, and performance expectations in `README.md`
+- [ ] T021 Run the implementation verification steps documented in `specs/001-support-progress-messages/quickstart.md`
 
 ---
 
@@ -128,17 +131,17 @@ Phase 2 Foundational
    └── Phase 4 US2
          ↓
       Phase 5 US3
-   ↓
-Phase 6 Polish
+              ↓
+         Phase 6 Polish
 ```
 
 ---
 
 ## Parallel Opportunities
 
-- `T015` and `T016` can run in parallel after implementation is complete because they touch different unit and integration test files.
+- `T019` and `T020` can run in parallel after story work is complete because they touch different validation and documentation files.
 - After Phase 2, US1 and US2 can be implemented in parallel if different contributors coordinate around shared type changes already landed in Phase 2.
-- Documentation update `T017` can be done while regression coverage is being completed, once the final CLI behavior is stable.
+- Documentation update `T020` can be done while final shared regression coverage is being completed, once the final CLI behavior is stable.
 
 ## Parallel Example: User Story 1
 
@@ -153,7 +156,7 @@ Task: "Surface PROGRESS search result labels in src/cli/formatters/search.ts"
 ```bash
 # After foundational work is merged:
 Task: "Render progress transcript blocks distinctly in src/cli/formatters/session.ts"
-Task: "Preserve progress transcript entries in Markdown export rendering in src/lib/export.ts"
+Task: "Preserve full-fidelity progress entries in JSON and Markdown export rendering in src/lib/export.ts"
 ```
 
 ## Parallel Example: User Story 3
@@ -181,7 +184,7 @@ Task: "Accept progress in view filter parsing and help text in src/cli/commands/
 2. Deliver US1 so search stops missing progress content
 3. Deliver US2 so session transcripts become complete
 4. Deliver US3 so progress can be isolated during review
-5. Finish with regression coverage, docs, and quickstart validation
+5. Finish with shared regression coverage, docs, and quickstart validation
 
 ### Suggested MVP Scope
 
