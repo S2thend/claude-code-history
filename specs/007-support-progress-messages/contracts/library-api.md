@@ -1,6 +1,6 @@
 # Library API Contract: Support Progress Messages
 
-**Feature**: 001-support-progress-messages  
+**Feature**: 007-support-progress-messages  
 **Date**: 2026-04-01
 
 ## Overview

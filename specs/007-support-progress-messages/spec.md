@@ -1,6 +1,6 @@
 # Feature Specification: Support Progress Messages
 
-**Feature Branch**: `001-support-progress-messages`  
+**Feature Branch**: `007-support-progress-messages`  
 **Created**: 2026-04-01  
 **Status**: Draft  
 **Input**: User description: "cch currently drops type: progress entries during parsing, so their content never reaches search or view, which is why the bug is real. Add first-class support for progress messages in the parser and message model, then include them in text extraction and display/filter logic so cch search and cch view can surface their content."

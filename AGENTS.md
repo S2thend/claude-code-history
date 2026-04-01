@@ -4,7 +4,7 @@ Auto-generated from all feature plans. Last updated: 2026-04-01
 
 ## Active Technologies
 
-- TypeScript 5.x with strict mode enabled + Commander.js (CLI framework), Node.js built-ins (`fs`, `path`, `readline`) (001-support-progress-messages)
+- TypeScript 5.x with strict mode enabled + Commander.js (CLI framework), Node.js built-ins (`fs`, `path`, `readline`) (007-support-progress-messages)
 
 ## Project Structure
 
@@ -23,7 +23,7 @@ TypeScript 5.x with strict mode enabled: Follow standard conventions
 
 ## Recent Changes
 
-- 001-support-progress-messages: Added TypeScript 5.x with strict mode enabled + Commander.js (CLI framework), Node.js built-ins (`fs`, `path`, `readline`)
+- 007-support-progress-messages: Added TypeScript 5.x with strict mode enabled + Commander.js (CLI framework), Node.js built-ins (`fs`, `path`, `readline`)
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

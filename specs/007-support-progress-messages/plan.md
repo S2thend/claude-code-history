@@ -1,7 +1,7 @@
 # Implementation Plan: Support Progress Messages
 
-**Branch**: `001-support-progress-messages` | **Date**: 2026-04-01 | **Spec**: [spec.md](./spec.md)
-**Input**: Feature specification from `/specs/001-support-progress-messages/spec.md`
+**Branch**: `007-support-progress-messages` | **Date**: 2026-04-01 | **Spec**: [spec.md](./spec.md)
+**Input**: Feature specification from `/specs/007-support-progress-messages/spec.md`
 
 ## Summary
 
@@ -56,7 +56,7 @@ No constitution violations require justification.
 ### Documentation (this feature)
 
 ```text
-specs/001-support-progress-messages/
+specs/007-support-progress-messages/
 ├── plan.md
 ├── research.md
 ├── data-model.md

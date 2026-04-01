@@ -1,6 +1,6 @@
 # Tasks: Support Progress Messages
 
-**Input**: Design documents from `/specs/001-support-progress-messages/`
+**Input**: Design documents from `/specs/007-support-progress-messages/`
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md), [data-model.md](./data-model.md), [contracts/](./contracts/)
 
 **Tests**: The feature spec does not request TDD-style test-first implementation, so implementation can precede tests within a phase. Each user story phase still includes explicit validation tasks so every increment remains independently testable.
@@ -100,7 +100,7 @@
 
 - [ ] T019 [P] Add shared session-count and transcript-order regression coverage for progress messages in `tests/unit/session.test.ts`
 - [ ] T020 [P] Update progress-aware command examples, fidelity guarantees, and performance expectations in `README.md`
-- [ ] T021 Run the implementation verification steps documented in `specs/001-support-progress-messages/quickstart.md`
+- [ ] T021 Run the implementation verification steps documented in `specs/007-support-progress-messages/quickstart.md`
 
 ---
 
@@ -197,4 +197,4 @@ Task: "Accept progress in view filter parsing and help text in src/cli/commands/
 
 - Tasks marked `[P]` are safe parallel candidates because they target different files and do not depend on incomplete same-phase work.
 - User story phases are intentionally scoped so each story can be validated independently after the shared foundational work lands.
-- The feature branch currently coexists with another `001-*` spec directory; keep using the explicit feature path `specs/001-support-progress-messages/` when running follow-up Specify commands if ambiguity appears again.
+- This feature package is renumbered to `007-support-progress-messages`; use that explicit path in follow-up Specify commands if needed.
