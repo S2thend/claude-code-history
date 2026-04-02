@@ -29,14 +29,20 @@ Support for nested Claude child-agent transcripts so they:
 | `src/lib/export.ts` | Export fidelity | Include unresolved referenced agent IDs in Markdown/JSON export metadata |
 | `src/lib/index.ts` | Public API surface | Re-export additive types and ambiguity error helpers |
 | `src/cli/commands/view.ts` | View command | Accept/document agent identifiers and handle ambiguity errors distinctly |
+| `src/cli/utils/config.ts` | CLI JSON behavior | Normalize structured JSON errors for ambiguous and missing agent lookups |
 | `src/cli/formatters/session.ts` | Detail rendering | Show linked and unresolved agent metadata in human-readable session views |
+| `src/cli/formatters/table.ts` | List rendering | Keep top-level rows focused on main sessions while preserving additive summary metadata |
 | `tests/integration/list-sessions.test.ts` | Session summaries | Verify nested linking, fallback behavior, and main-session-only list rows |
 | `tests/integration/get-session.test.ts` | Session retrieval | Verify direct lookup by bare/prefixed agent ID, nested discovery, unresolved refs, and ambiguity handling |
 | `tests/integration/export-sessions.test.ts` | Export surfaces | Verify linked and unresolved agent metadata are preserved |
+| `tests/integration/contract/claude-session-contract.test.ts` | Contract validation | Verify parser/discovery behavior against anonymized Claude JSONL samples |
+| `tests/integration/performance/session-lookup.test.ts` | Performance validation | Verify `list` and direct lookup stay under the feature budget with 100+ sessions |
+| `tests/integration/cli/list.test.ts` | CLI list flow | Verify main-session-only rows while JSON/export metadata stays additive |
 | `tests/integration/cli/view.test.ts` | CLI view flow | Verify direct child-agent lookup, usage/help text, and ambiguity messaging |
 | `tests/unit/platform.test.ts` | Path parsing | Verify nested owner extraction and recursive session file handling |
 | `tests/unit/parser.test.ts` | Raw reference parsing | Verify explicit agent reference extraction and fallback conditions |
 | `tests/unit/session.test.ts` | Resolution rules | Verify precedence, unresolved references, and duplicate-ID behavior |
+| `tests/unit/cli/formatters/session.test.ts` | Session detail formatting | Verify linked and unresolved metadata remain readable without changing list scope |
 
 ## Suggested Implementation Order
 
@@ -62,7 +68,7 @@ Support for nested Claude child-agent transcripts so they:
 
 - Keep `cch list` human-readable output focused on main-session rows.
 - Expose `agentIds` and `unresolvedAgentIds` in JSON summaries and session detail/export metadata.
-- Update `cch view` usage/help text and ambiguity error handling.
+- Update `cch view` usage/help text and structured JSON ambiguity/not-found handling.
 
 ### Step 5: Lock Behavior With Regression Tests
 
@@ -72,7 +78,10 @@ Support for nested Claude child-agent transcripts so they:
   - fallback-only nested ownership,
   - explicit-vs-path conflicts,
   - duplicate agent IDs,
-  - legacy flat agent files.
+  - legacy flat agent files,
+  - anonymized real Claude JSONL contract samples,
+  - macOS/Linux/Windows path variants,
+  - and 100+ session performance fixtures.
 
 ## Example Synthetic Fixture Tree
 
@@ -101,8 +110,8 @@ Use a main-session raw entry set that includes:
 npm run typecheck
 npm test
 node dist/cli/index.js --data-path <test-data-dir> list --json
-node dist/cli/index.js --data-path <test-data-dir> view nested456 --full
-node dist/cli/index.js --data-path <test-data-dir> view duplicate999 --full
+node dist/cli/index.js --data-path <test-data-dir> view nested456 --json
+node dist/cli/index.js --data-path <test-data-dir> view duplicate999 --json
 ```
 
 ## Expected Outcomes
@@ -111,5 +120,7 @@ node dist/cli/index.js --data-path <test-data-dir> view duplicate999 --full
 - Main sessions expose only their true child-agent links.
 - Missing child transcripts appear as unresolved references instead of broken linked IDs.
 - Direct child-agent lookup works through both library and CLI when unique.
-- Duplicate agent-ID lookup returns ambiguity instead of an arbitrary transcript.
+- Duplicate and missing agent-ID JSON lookups return structured error payloads instead of arbitrary transcript content.
+- Exported linked and unresolved metadata survive round-trip validation.
+- Path-sensitive discovery remains correct across macOS, Linux, and Windows fixture cases, with any limitations documented.
 - Legacy flat agent-session behavior continues to pass regression tests.

@@ -93,6 +93,23 @@ Multiple matching agent transcripts were found. Use a more specific session iden
 
 Exit code: non-zero
 
+### JSON Ambiguity Handling
+
+```bash
+$ cch view abc123 --json
+```
+
+```json
+{
+  "success": false,
+  "error": {
+    "type": "ambiguous-agent-id",
+    "agentId": "abc123",
+    "message": "Agent ID is ambiguous: abc123"
+  }
+}
+```
+
 ### Missing Agent Handling
 
 ```bash
@@ -105,6 +122,23 @@ Try 'cch list --json' or inspect the parent session's unresolved agent reference
 ```
 
 Exit code: non-zero
+
+### JSON Missing Agent Handling
+
+```bash
+$ cch view missing456 --json
+```
+
+```json
+{
+  "success": false,
+  "error": {
+    "type": "session-not-found",
+    "agentId": "missing456",
+    "message": "Session not found: missing456"
+  }
+}
+```
 
 ## Option Interactions
 
@@ -120,4 +154,5 @@ Exit code: non-zero
 
 - `cch view --help` MUST describe accepted identifier forms beyond index/UUID only.
 - User-facing ambiguity errors MUST be distinct from not-found errors.
+- `cch view --json` MUST return structured error results for ambiguity and not-found outcomes instead of plain strings.
 - No new flags are required for `list` or `view`.

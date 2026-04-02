@@ -21,9 +21,10 @@
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Prepare reusable nested-agent fixture inputs that all stories can share.
+**Purpose**: Prepare reusable synthetic, anonymized contract, and scale fixtures that all stories can share.
 
-- [ ] T001 Create reusable nested-agent and conflict JSONL fixtures in `tests/fixtures/nested-main-session.jsonl`, `tests/fixtures/nested-agent-session.jsonl`, and `tests/fixtures/nested-agent-conflict-session.jsonl`
+- [ ] T001 Create reusable nested-agent, missing-reference, and conflict JSONL fixtures in `tests/fixtures/nested-main-session.jsonl`, `tests/fixtures/nested-agent-session.jsonl`, and `tests/fixtures/nested-agent-conflict-session.jsonl`
+- [ ] T002 [P] Add anonymized Claude contract fixtures and 100+-session performance fixtures in `tests/fixtures/contracts/claude-main-session.jsonl`, `tests/fixtures/contracts/claude-main-session/subagents/agent-linked.jsonl`, `tests/fixtures/performance/perf-main-session-001.jsonl`, and `tests/fixtures/performance/perf-main-session-101.jsonl`
 
 ---
 
@@ -33,14 +34,15 @@
 
 **⚠️ CRITICAL**: No user story work should begin until this phase is complete.
 
-- [ ] T002 [P] Add `unresolvedAgentIds` summary/session metadata definitions in `src/lib/types.ts`
-- [ ] T003 [P] Add `AmbiguousAgentSessionError` and `isAmbiguousAgentSessionError` in `src/lib/errors.ts`
-- [ ] T004 [P] Add recursive session-file discovery helpers and nested-owner path parsing in `src/lib/platform.ts`
-- [ ] T005 [P] Add explicit agent-reference extraction helpers for raw main-session entries in `src/lib/parser.ts`
-- [ ] T006 Implement shared `SessionInfo` discovery context and link-resolution scaffolding in `src/lib/session.ts`
-- [ ] T007 Re-export unresolved-link metadata and ambiguity helpers in `src/lib/index.ts`
-- [ ] T008 Add foundational nested-path coverage in `tests/unit/platform.test.ts`
-- [ ] T009 Add foundational raw-reference and shared-resolution coverage in `tests/unit/parser.test.ts` and `tests/unit/session.test.ts`
+- [ ] T003 [P] Add `unresolvedAgentIds` summary/session metadata definitions in `src/lib/types.ts`
+- [ ] T004 [P] Add `AmbiguousAgentSessionError` and `isAmbiguousAgentSessionError` in `src/lib/errors.ts`
+- [ ] T005 [P] Add recursive session-file discovery helpers and macOS/Linux/Windows nested-owner path parsing in `src/lib/platform.ts`
+- [ ] T006 [P] Add explicit agent-reference extraction helpers for raw main-session entries in `src/lib/parser.ts`
+- [ ] T007 Implement shared `SessionInfo` discovery context and link-resolution scaffolding in `src/lib/session.ts`
+- [ ] T008 Re-export unresolved-link metadata and ambiguity helpers in `src/lib/index.ts`
+- [ ] T009 Add cross-platform flat and nested path coverage for macOS, Linux, and Windows variants in `tests/unit/platform.test.ts`
+- [ ] T010 Add foundational raw-reference and shared-resolution coverage in `tests/unit/parser.test.ts` and `tests/unit/session.test.ts`
+- [ ] T011 Add anonymized Claude JSONL contract parsing and linkage coverage in `tests/integration/contract/claude-session-contract.test.ts`
 
 **Checkpoint**: Recursive discovery inputs, additive metadata, and ambiguity primitives are ready for story work.
 
@@ -54,9 +56,9 @@
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Replace project-wide agent guessing with explicit-reference-first per-session link resolution in `src/lib/session.ts`
-- [ ] T011 [P] [US1] Add main-session retrieval coverage for nested, unresolved, fallback, and conflicting links in `tests/integration/get-session.test.ts`
-- [ ] T012 [P] [US1] Add list-session coverage for true-child-only linking and unresolved references in `tests/integration/list-sessions.test.ts`
+- [ ] T012 [US1] Replace project-wide agent guessing with explicit-reference-first per-session link resolution in `src/lib/session.ts`
+- [ ] T013 [P] [US1] Add main-session retrieval coverage for nested, unresolved, fallback, and conflicting links in `tests/integration/get-session.test.ts`
+- [ ] T014 [P] [US1] Add list-session coverage for true-child-only linking and unresolved references in `tests/integration/list-sessions.test.ts`
 
 **Checkpoint**: User Story 1 is complete when main-session metadata is accurate and independently testable through library list/retrieval flows.
 
@@ -70,10 +72,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Extend `getSession()` and `getAgentSession()` to resolve bare and prefixed agent IDs with ambiguity detection in `src/lib/session.ts`
-- [ ] T014 [P] [US2] Surface accepted agent identifier forms and ambiguity-specific errors in `src/cli/commands/view.ts` and `src/cli/utils/config.ts`
-- [ ] T015 [P] [US2] Add library lookup coverage for unique, missing, and duplicate agent IDs in `tests/integration/get-session.test.ts`
-- [ ] T016 [P] [US2] Add CLI view coverage for direct agent lookup and ambiguity messaging in `tests/integration/cli/view.test.ts` and `tests/unit/cli/commands/view.test.ts`
+- [ ] T015 [US2] Extend `getSession()` and `getAgentSession()` to resolve bare and prefixed agent IDs with ambiguity detection in `src/lib/session.ts`
+- [ ] T016 [P] [US2] Implement structured JSON ambiguity/not-found responses and accepted agent identifier forms in `src/cli/commands/view.ts` and `src/cli/utils/config.ts`
+- [ ] T017 [P] [US2] Add library lookup coverage for unique, missing, and duplicate agent IDs in `tests/integration/get-session.test.ts`
+- [ ] T018 [P] [US2] Add CLI view coverage for direct agent lookup, JSON error payloads, and ambiguity messaging in `tests/integration/cli/view.test.ts` and `tests/unit/cli/commands/view.test.ts`
 
 **Checkpoint**: User Story 2 is complete when exported linked agent IDs are directly usable in follow-up library and CLI lookups.
 
@@ -87,10 +89,10 @@
 
 ### Implementation for User Story 3
 
-- [ ] T017 [P] [US3] Surface linked and unresolved agent metadata in human-readable session detail output in `src/cli/formatters/session.ts`
-- [ ] T018 [P] [US3] Preserve linked and unresolved agent metadata in JSON and Markdown export headers in `src/lib/export.ts`
-- [ ] T019 [US3] Keep `cch list` human-readable rows main-session-only while exposing additive summary fields in `src/cli/formatters/table.ts`
-- [ ] T020 [P] [US3] Add formatter and integration coverage for main-session-only list output and linked/unresolved metadata in `tests/unit/cli/formatters/session.test.ts`, `tests/integration/cli/list.test.ts`, and `tests/integration/export-sessions.test.ts`
+- [ ] T019 [P] [US3] Surface linked and unresolved agent metadata in human-readable session detail output in `src/cli/formatters/session.ts`
+- [ ] T020 [P] [US3] Preserve linked and unresolved agent metadata in JSON and Markdown export headers in `src/lib/export.ts`
+- [ ] T021 [US3] Keep `cch list` human-readable rows main-session-only while exposing additive summary fields in `src/cli/formatters/table.ts`
+- [ ] T022 [P] [US3] Add formatter, list, and export round-trip re-import coverage for main-session-only output and linked/unresolved metadata in `tests/unit/cli/formatters/session.test.ts`, `tests/integration/cli/list.test.ts`, and `tests/integration/export-sessions.test.ts`
 
 **Checkpoint**: User Story 3 is complete when navigation metadata is visible without promoting agent transcripts to top-level list rows.
 
@@ -100,9 +102,10 @@
 
 **Purpose**: Lock in backward compatibility, documentation, and end-to-end verification.
 
-- [ ] T021 [P] Add legacy flat-agent regression coverage across `tests/unit/session.test.ts`, `tests/integration/get-session.test.ts`, and `tests/integration/list-sessions.test.ts`
-- [ ] T022 [P] Update linked-agent lookup and unresolved-reference examples in `README.md`
-- [ ] T023 Run the verification steps documented in `specs/008-agent-session-linking/quickstart.md`
+- [ ] T023 [P] Add legacy flat-agent regression coverage across `tests/unit/session.test.ts`, `tests/integration/get-session.test.ts`, and `tests/integration/list-sessions.test.ts`
+- [ ] T024 [P] Add repeatable 100+-session performance validation for `listSessions()`, `getSession()`, and `cch view` in `tests/integration/performance/session-lookup.test.ts`
+- [ ] T025 [P] Update linked-agent lookup examples, structured JSON error behavior, and platform-specific caveats in `README.md` and `specs/008-agent-session-linking/quickstart.md`
+- [ ] T026 Run the verification steps documented in `specs/008-agent-session-linking/quickstart.md`
 
 ---
 
@@ -114,14 +117,14 @@
 - **Phase 2: Foundational**: Depends on Phase 1 and blocks all user stories
 - **Phase 3: User Story 1**: Depends on Phase 2 only
 - **Phase 4: User Story 2**: Depends on Phase 2 only
-- **Phase 5: User Story 3**: Depends on Phase 2 and is safest after User Story 1 in a single-developer flow because it surfaces the metadata that User Story 1 makes accurate
+- **Phase 5: User Story 3**: Depends on Phase 3 and Phase 4 because it surfaces metadata produced by User Story 1 and relies on the direct-lookup contract finalized by User Story 2
 - **Phase 6: Polish**: Depends on completion of all desired user stories
 
 ### User Story Dependencies
 
 - **US1**: Independent after Foundational; recommended MVP starting point
 - **US2**: Independent after Foundational from a product perspective, but shares `src/lib/session.ts` with US1 and needs coordination if worked in parallel
-- **US3**: Depends on accurate linked-agent metadata from US1, while remaining independently testable once that metadata exists
+- **US3**: Depends on accurate linked-agent metadata from US1 and the finalized direct-lookup/error contract from US2
 
 ### Dependency Graph
 
@@ -129,28 +132,26 @@
 Phase 1 Setup
    ↓
 Phase 2 Foundational
-   ├── Phase 3 US1
-   └── Phase 4 US2
-         ↓
-      Phase 5 US3
-         ↓
-    Phase 6 Polish
+   ├── Phase 3 US1 ──┐
+   └── Phase 4 US2 ──┴── Phase 5 US3
+                          ↓
+                     Phase 6 Polish
 ```
 
 ---
 
 ## Parallel Opportunities
 
-- `T002`, `T003`, `T004`, and `T005` can run in parallel during Phase 2 because they target different foundational files.
-- After foundational work lands, `T011` and `T012` can run in parallel for US1 validation.
-- In US2, `T014`, `T015`, and `T016` can run in parallel once `T013` establishes the lookup semantics.
-- In US3, `T017` and `T018` can run in parallel because session detail rendering and export metadata touch different files.
-- `T021` and `T022` can run in parallel during polish while final quickstart validation is prepared.
+- `T003`, `T004`, `T005`, and `T006` can run in parallel during Phase 2 because they target different foundational files.
+- After foundational work lands, `T013` and `T014` can run in parallel for US1 validation.
+- In US2, `T016`, `T017`, and `T018` can run in parallel once `T015` establishes the lookup semantics.
+- In US3, `T019` and `T020` can run in parallel because session detail rendering and export metadata touch different files.
+- `T023`, `T024`, and `T025` can run in parallel during polish while final quickstart validation is prepared.
 
 ## Parallel Example: User Story 1
 
 ```bash
-# After T010 is complete:
+# After T012 is complete:
 Task: "Add main-session retrieval coverage for nested, unresolved, fallback, and conflicting links in tests/integration/get-session.test.ts"
 Task: "Add list-session coverage for true-child-only linking and unresolved references in tests/integration/list-sessions.test.ts"
 ```
@@ -158,15 +159,15 @@ Task: "Add list-session coverage for true-child-only linking and unresolved refe
 ## Parallel Example: User Story 2
 
 ```bash
-# After T013 is complete:
-Task: "Surface accepted agent identifier forms and ambiguity-specific errors in src/cli/commands/view.ts and src/cli/utils/config.ts"
-Task: "Add CLI view coverage for direct agent lookup and ambiguity messaging in tests/integration/cli/view.test.ts and tests/unit/cli/commands/view.test.ts"
+# After T015 is complete:
+Task: "Implement structured JSON ambiguity/not-found responses and accepted agent identifier forms in src/cli/commands/view.ts and src/cli/utils/config.ts"
+Task: "Add CLI view coverage for direct agent lookup, JSON error payloads, and ambiguity messaging in tests/integration/cli/view.test.ts and tests/unit/cli/commands/view.test.ts"
 ```
 
 ## Parallel Example: User Story 3
 
 ```bash
-# After US1 metadata is stable:
+# After US1 and US2 contracts are stable:
 Task: "Surface linked and unresolved agent metadata in human-readable session detail output in src/cli/formatters/session.ts"
 Task: "Preserve linked and unresolved agent metadata in JSON and Markdown export headers in src/lib/export.ts"
 ```
@@ -187,8 +188,8 @@ Task: "Preserve linked and unresolved agent metadata in JSON and Markdown export
 1. Land recursive discovery, additive metadata, and ambiguity primitives
 2. Deliver US1 so main-session linking becomes accurate
 3. Deliver US2 so linked agent IDs become directly navigable
-4. Deliver US3 so CLI/detail/export surfaces present the richer metadata without changing top-level list scope
-5. Finish with flat-layout regression coverage, docs, and quickstart validation
+4. Deliver US3 so CLI/detail/export surfaces present the richer metadata without changing top-level list scope or breaking round-trip fidelity
+5. Finish with flat-layout regression coverage, contract fixtures, performance validation, docs, and quickstart validation
 
 ### Suggested MVP Scope
 
@@ -203,7 +204,7 @@ With multiple developers:
 2. Once Foundational is done:
    - Developer A: User Story 1
    - Developer B: User Story 2
-3. After User Story 1 stabilizes shared metadata:
+3. After User Story 1 and User Story 2 stabilize shared metadata and lookup contracts:
    - Developer C: User Story 3
 4. Finish with shared regression/documentation polish
 

@@ -105,6 +105,23 @@ class AmbiguousAgentSessionError extends Error {
 - Raised when a direct lookup by bare or prefixed agent identifier matches more than one discoverable transcript.
 - Not used for missing agent transcripts; missing lookups remain not-found failures.
 
+### JsonLookupErrorResult
+
+Structured CLI JSON output must distinguish ambiguous direct lookup from missing direct lookup.
+
+```typescript
+interface JsonLookupErrorResult {
+  type: 'ambiguous-agent-id' | 'session-not-found';
+  agentId: string;
+  message: string;
+}
+```
+
+**Validation Rules**:
+- Returned only for JSON-oriented direct lookup failures.
+- `type: 'ambiguous-agent-id'` is used when more than one discoverable transcript matches the requested agent ID.
+- `type: 'session-not-found'` is used when no discoverable transcript matches the requested agent ID.
+
 ## Type Relationships
 
 ```text
@@ -169,3 +186,4 @@ Direct Agent Lookup
 5. `unresolvedAgentIds` never include discoverable linked child agents.
 6. Explicit reference evidence overrides conflicting nested path evidence.
 7. Duplicate direct agent lookups never return an arbitrary transcript.
+8. Exported `agentIds` and `unresolvedAgentIds` survive round-trip validation without changing value or association.

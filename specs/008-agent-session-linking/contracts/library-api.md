@@ -97,6 +97,7 @@ export async function getSession(
 - Bare or prefixed agent identifiers resolve the matching agent transcript when exactly one discoverable transcript matches.
 - When a bare or prefixed agent identifier matches more than one transcript, `getSession()` throws `AmbiguousAgentSessionError`.
 - When an identifier matches no session, `getSession()` throws `SessionNotFoundError`.
+- CLI JSON workflows that wrap `getSession()` must distinguish these two failures as structured `ambiguous-agent-id` and `session-not-found` results.
 
 ### getAgentSession
 
@@ -129,6 +130,7 @@ export async function exportSessionToMarkdown(
 
 **Behavioral Contract**:
 - JSON export preserves both `agentIds` and `unresolvedAgentIds` through the serialized session object.
+- Exported `agentIds` and `unresolvedAgentIds` remain stable under round-trip validation when the serialized JSON is read back into a session-shaped object.
 - Markdown export surfaces both discoverable linked agents and unresolved referenced agent IDs in session metadata.
 
 ## Public Re-Exports

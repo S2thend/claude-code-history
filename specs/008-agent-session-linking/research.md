@@ -63,12 +63,13 @@ This document captures the decisions needed to support nested Claude subagent tr
 
 ### 5. Lookup Surface and CLI Contract
 
-**Decision**: Keep `list` focused on main sessions, but expand library and CLI contracts so exported linked identifiers are directly usable and ambiguity is surfaced as a first-class outcome.
+**Decision**: Keep `list` focused on main sessions, but expand library and CLI contracts so exported linked identifiers are directly usable and ambiguity and not-found lookup failures are surfaced as structured JSON outcomes.
 
 **Rationale**:
 - The current public contract documents `getSession()`/`view` mainly as index-or-UUID lookups, while the feature requires direct navigation by linked agent ID.
 - Top-level list behavior should remain stable; the richer agent metadata belongs in JSON/list summaries, session detail views, and exports.
 - Distinguishing ambiguity from “not found” keeps troubleshooting actionable for users and testable for the CLI.
+- JSON workflows need a structured error payload so automation can reliably tell ambiguity apart from a missing transcript.
 
 **Alternatives Considered**:
 - Add agent sessions as top-level rows in `list`: Rejected because the spec keeps top-level session lists focused on main conversations.
@@ -76,16 +77,30 @@ This document captures the decisions needed to support nested Claude subagent tr
 
 ### 6. Backward Compatibility and Test Strategy
 
-**Decision**: Preserve flat project-level `agent-*.jsonl` support while adding regression fixtures for nested subagents, fallback linkage, missing transcripts, conflict precedence, and duplicate-ID ambiguity.
+**Decision**: Preserve flat project-level `agent-*.jsonl` support while combining synthetic fixtures, anonymized real Claude JSONL contract samples, and cross-platform path cases for nested subagents, fallback linkage, missing transcripts, conflict precedence, and duplicate-ID ambiguity.
 
 **Rationale**:
 - Existing tests cover only flat agent sessions and simple `getAgentSession()` success/failure, so they do not protect the new discovery and linkage behavior.
 - The feature must support both older flat storage and newer nested storage without regressing current workflows.
-- Synthetic fixture trees are sufficient to exercise nested discovery and lookup semantics in both library and CLI paths.
+- Synthetic fixture trees remain useful for targeted edge cases, but contract validation against anonymized real Claude JSONL structures is required to protect parser and discovery behavior.
+- Cross-platform path cases must be exercised explicitly because recursive nested discovery is path-sensitive.
 
 **Alternatives Considered**:
 - Replace flat support with nested-only behavior: Rejected because the spec requires backward compatibility.
 - Cover only library paths: Rejected because direct lookup and ambiguity messaging must also work through `cch view`.
+
+### 7. Fidelity and Performance Validation
+
+**Decision**: Add explicit round-trip export validation for linked and unresolved metadata, and repeatable performance validation for session listing and direct lookup over fixture sets containing at least 100 sessions.
+
+**Rationale**:
+- The constitution requires exported metadata and relationships to survive round-trip validation.
+- The clarified spec adds a measurable under-1-second target for both list and direct lookup workflows.
+- Recursive discovery broadens the search surface, so performance regression must be measured rather than assumed.
+
+**Alternatives Considered**:
+- Validate only correctness and skip round-trip/performance checks: Rejected because fidelity and speed are explicit acceptance criteria.
+- Benchmark only `list`: Rejected because direct agent lookup is also part of the promised user workflow.
 
 ## Integration Points
 
@@ -119,13 +134,13 @@ This document captures the decisions needed to support nested Claude subagent tr
    - Display linked and unresolved agent metadata in human-readable session detail output.
 
 10. `tests/...`
-    - Add nested, conflicting, unresolved, and duplicate-ID coverage while retaining flat-agent regression tests.
+    - Add nested, conflicting, unresolved, duplicate-ID, contract, round-trip, and performance coverage while retaining flat-agent regression tests.
 
 ## Performance Considerations
 
 - Recursive discovery adds directory traversal depth but remains bounded by local project trees under `~/.claude/projects/`.
 - Link resolution remains linear in the number of entries in the target main session file and the number of discovered agent transcripts in the same project.
-- The main acceptance requirement is no user-visible slowdown for 100+ session fixture runs compared with the current session listing and lookup workflows.
+- The acceptance target is under 1 second for both session listing and direct session lookup over fixture sets containing at least 100 sessions.
 
 ## Open Uncertainty Managed by Design
 

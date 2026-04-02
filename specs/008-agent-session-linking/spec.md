@@ -13,6 +13,12 @@
 - Q: If the same agent ID appears in more than one transcript, how should direct agent lookup behave? → A: Resolve by agent ID alone, but fail with an ambiguity result if duplicate agent IDs are found.
 - Q: When explicit agent references are missing or incomplete, should nested subagent paths be allowed as a fallback source of linkage? → A: Use explicit agent references first, then use the nested subagent path as a fallback when needed.
 - Q: If explicit agent references and nested subagent path evidence conflict, which source should win? → A: Trust the explicit agent reference and ignore the conflicting nested path evidence.
+- Q: Should linked and unresolved agent metadata survive export and re-import validation? → A: Yes, both linked and unresolved agent metadata must survive a full round-trip validation.
+- Q: How should platform-sensitive path discovery be validated? → A: Validate macOS, Linux, and Windows path semantics and document any known platform-specific limitations.
+- Q: What fixture quality is required for parser and discovery validation? → A: Use real or anonymized Claude JSONL samples that cover nested, missing, fallback, and conflicting linkage scenarios.
+- Q: How should performance validation be scoped? → A: Verify both session listing and direct session lookup complete in under 1 second over fixture sets containing at least 100 sessions.
+- Q: What should JSON-oriented direct lookup return for ambiguous or missing agent IDs? → A: Return a structured JSON error result for both ambiguity and not-found outcomes.
+- Q: How should missing child transcript terminology be normalized? → A: Distinguish unresolved agent references on main-session metadata from not-found direct lookup failures.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -49,6 +55,8 @@ As a developer navigating from a main session to an agent session, I want an exp
 2. **Given** a main session that exposes a linked agent ID, **When** the user requests that agent transcript through the session-viewing workflow, **Then** the transcript opens successfully without requiring manual file-path discovery.
 3. **Given** a linked agent ID is provided in either a bare or display-ready form, **When** the user performs a lookup, **Then** the lookup resolves to the same agent transcript.
 4. **Given** the same agent ID appears in more than one transcript, **When** the user performs a direct lookup by that agent ID, **Then** the system reports an ambiguity result instead of returning one of the matching transcripts arbitrarily.
+5. **Given** the user performs a JSON-oriented direct lookup for an agent ID that matches more than one transcript, **When** the lookup completes, **Then** the response is a structured error result that identifies the requested agent ID and the ambiguity outcome without returning transcript content.
+6. **Given** the user performs a JSON-oriented direct lookup for an agent ID that matches no discoverable transcript, **When** the lookup completes, **Then** the response is a structured error result that identifies the requested agent ID and the not-found outcome without returning unrelated transcript content.
 
 ---
 
@@ -68,11 +76,11 @@ As a developer scanning available history, I want session lists to remain focuse
 
 ### Edge Cases
 
-- What happens when a main session references an agent session whose transcript file is missing? The system reports the lookup failure for that agent ID without substituting an unrelated agent transcript.
+- What happens when a main session references an agent session whose transcript file is missing? The system surfaces an unresolved agent reference on the main session metadata without substituting unrelated transcript data.
+- What happens when a user attempts to directly open an agent ID whose transcript cannot be discovered? The system returns a not-found result for the requested agent ID.
 - What happens when nested agent session files exist in the project but are not referenced by a main session? The system does not attach those agent sessions to unrelated main sessions.
 - What happens when a project contains a mix of nested agent session storage and older flat agent session storage? Users can still retrieve valid linked agent transcripts from either format without changing the list behavior for main sessions.
 - What happens when a user attempts to open a linked agent session using either the raw linked ID or its display-ready agent session form? Both inputs resolve to the same agent transcript.
-- What happens when a main session references an agent ID whose transcript cannot be discovered? Discoverable child agents remain navigable and the unresolved reference is surfaced separately so users can see the incomplete linkage.
 - What happens when the same agent ID exists in more than one transcript? The system reports an ambiguity result and requires disambiguation instead of guessing which transcript the user intended.
 - What happens when explicit child-agent references are missing or incomplete but the nested storage path still implies the parent-child relationship? The system can recover the link from the nested path, but only as a fallback after checking for explicit references.
 - What happens when explicit child-agent references disagree with nested path evidence? The system trusts the explicit reference and does not let the conflicting path evidence override that link.
@@ -91,11 +99,20 @@ As a developer scanning available history, I want session lists to remain focuse
 - **FR-005a**: When a main session references child agent IDs whose transcripts cannot be discovered, the system MUST surface those unresolved referenced agent IDs separately from the discoverable linked agent IDs.
 - **FR-006**: Direct agent-session retrieval by agent identifier MUST retrieve agent transcripts that were discovered from nested subagent storage.
 - **FR-006a**: When the same agent identifier matches more than one discoverable agent transcript, direct agent-session retrieval MUST return an ambiguity result instead of selecting one transcript arbitrarily.
+- **FR-006b**: JSON-oriented direct lookup workflows MUST return a structured error result that identifies the requested agent identifier and the ambiguity outcome whenever duplicate agent transcripts match the request.
 - **FR-007**: Session lookup workflows used by the CLI and library MUST resolve a linked agent ID directly, without requiring the caller to discover the underlying storage path manually.
 - **FR-008**: The system MUST treat different main sessions in the same project as separate agent-linking scopes so that one main session cannot inherit another session's child agents.
 - **FR-009**: When a requested linked agent transcript cannot be found, the system MUST fail with a session-not-found result for that requested agent ID rather than returning unrelated transcript data.
+- **FR-009a**: JSON-oriented direct lookup workflows MUST return a structured error result that identifies the requested agent identifier and the not-found outcome whenever no discoverable transcript matches the request.
 - **FR-010**: Exported session metadata that surfaces linked agent IDs MUST use values that are directly usable in a follow-up agent lookup.
 - **FR-011**: Existing retrieval behavior for already supported agent session layouts MUST remain available after nested agent discovery is added.
+
+### Non-Functional Requirements
+
+- **NFR-001**: Path discovery and direct lookup MUST validate macOS, Linux, and Windows path semantics for both flat and nested agent session layouts, and any known unsupported platform-specific behavior MUST be documented.
+- **NFR-002**: Session listing and direct session lookup over fixture sets containing at least 100 sessions MUST complete in under 1 second during acceptance validation on supported development platforms.
+- **NFR-003**: Exported session metadata for `agentIds` and `unresolvedAgentIds` MUST survive export and re-import validation without losing linkage meaning or changing session association.
+- **NFR-004**: JSONL parsing and agent-link discovery MUST be validated against real or anonymized Claude history samples that cover flat layouts, nested layouts, unresolved references, fallback linkage, and conflicting evidence.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -105,6 +122,7 @@ As a developer scanning available history, I want session lists to remain focuse
 - **Fallback Path Relationship**: A recoverable parent-child relationship inferred from nested subagent storage when explicit agent reference data is missing or incomplete.
 - **Unresolved Agent Reference**: A child agent identifier recorded by a main session for which no retrievable agent transcript is currently discoverable.
 - **Ambiguous Agent Match**: A direct agent lookup outcome in which more than one discoverable transcript matches the requested agent identifier.
+- **Structured Lookup Error Result**: A machine-readable direct-lookup failure response that identifies the requested agent identifier and whether the outcome was ambiguous or not found.
 - **Session Identifier**: The user-facing value used to retrieve either a main session or an agent session in a later lookup.
 
 ## Assumptions
@@ -130,5 +148,11 @@ As a developer scanning available history, I want session lists to remain focuse
 - **SC-001b**: In acceptance testing, 100% of cases where explicit reference data conflicts with nested path evidence follow the explicit reference and 0 are reassigned based on the conflicting path alone.
 - **SC-002**: In acceptance testing, 100% of linked agent IDs returned from a main session can be used to retrieve the correct child transcript through both library lookup and session-viewing workflows.
 - **SC-002a**: In acceptance testing, 100% of direct lookups involving duplicate agent IDs return an ambiguity result and 0 return an arbitrary transcript.
+- **SC-002b**: In acceptance testing, 100% of JSON-oriented direct lookups involving duplicate agent IDs return a structured ambiguity result that identifies the requested agent identifier and 0 return transcript content.
+- **SC-002c**: In acceptance testing, 100% of JSON-oriented direct lookups involving missing agent IDs return a structured not-found result that identifies the requested agent identifier and 0 return unrelated transcript content.
 - **SC-003**: In acceptance testing, session-list output continues to show only main sessions as top-level results even when nested child-agent histories are present.
 - **SC-004**: In regression testing, 100% of pre-existing supported agent-session retrieval scenarios continue to pass after nested child-agent discovery is added.
+- **SC-005**: In acceptance validation, 100% of supported macOS, Linux, and Windows path-layout cases for flat and nested agent discovery resolve correctly, and any unsupported platform-specific caveats are documented before release.
+- **SC-006**: In repeatable acceptance validation with fixture sets containing at least 100 sessions, both session listing and direct session lookup complete in under 1 second.
+- **SC-007**: In round-trip validation, 100% of exported `agentIds` and `unresolvedAgentIds` survive export and re-import without changing value, meaning, or parent-session association.
+- **SC-008**: In contract validation with real or anonymized Claude JSONL samples, 100% of supported nested, unresolved, fallback, conflicting, and flat-layout linkage scenarios pass.
