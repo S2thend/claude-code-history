@@ -48,8 +48,7 @@ export interface ResolvedCliConfig {
  * @returns Resolved configuration
  */
 export function resolveConfig(opts: GlobalOptions): ResolvedCliConfig {
-  const dataPath =
-    opts.dataPath ?? process.env[ENV_VARS.DATA_PATH] ?? getDefaultDataPath();
+  const dataPath = opts.dataPath ?? process.env[ENV_VARS.DATA_PATH] ?? getDefaultDataPath();
 
   return {
     dataPath,

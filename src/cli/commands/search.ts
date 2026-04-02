@@ -5,11 +5,7 @@
  */
 
 import type { Command } from 'commander';
-import {
-  searchSessions,
-  searchInSession,
-  isDataNotFoundError,
-} from '../../lib/index.js';
+import { searchSessions, searchInSession, isDataNotFoundError } from '../../lib/index.js';
 import {
   type GlobalOptions,
   resolveConfig,
@@ -18,10 +14,7 @@ import {
 } from '../utils/config.js';
 import { ioError } from '../utils/errors.js';
 import { successResult, output, handleError } from '../utils/output.js';
-import {
-  formatSearchResults,
-  formatSearchResultsForJson,
-} from '../formatters/search.js';
+import { formatSearchResults, formatSearchResultsForJson } from '../formatters/search.js';
 import { outputWithPager } from '../formatters/pager.js';
 
 /**
@@ -37,10 +30,7 @@ interface SearchOptions extends GlobalOptions {
 /**
  * Execute the search command
  */
-async function executeSearch(
-  query: string,
-  options: SearchOptions
-): Promise<void> {
+async function executeSearch(query: string, options: SearchOptions): Promise<void> {
   const config = resolveConfig(options);
   const contextLines = parseInt(options.context, 10) || 2;
   const limit = options.limit !== undefined ? parseInt(options.limit, 10) : undefined;
@@ -74,12 +64,7 @@ async function executeSearch(
         const commandResult = successResult(jsonData);
         output(commandResult, true);
       } else {
-        const formatted = formatSearchResults(
-          paginatedMatches,
-          query,
-          contextLines,
-          pagination
-        );
+        const formatted = formatSearchResults(paginatedMatches, query, contextLines, pagination);
         await outputWithPager(formatted, options.full);
       }
     } else {
@@ -91,12 +76,7 @@ async function executeSearch(
         const commandResult = successResult(jsonData);
         output(commandResult, true);
       } else {
-        const formatted = formatSearchResults(
-          result.data,
-          query,
-          contextLines,
-          result.pagination
-        );
+        const formatted = formatSearchResults(result.data, query, contextLines, result.pagination);
         await outputWithPager(formatted, options.full);
       }
     }

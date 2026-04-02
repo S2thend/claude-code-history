@@ -23,11 +23,7 @@ export enum ExitCode {
 /**
  * Error codes for structured error responses
  */
-export type ErrorCode =
-  | 'USAGE_ERROR'
-  | 'NOT_FOUND'
-  | 'IO_ERROR'
-  | 'INTERNAL_ERROR';
+export type ErrorCode = 'USAGE_ERROR' | 'NOT_FOUND' | 'IO_ERROR' | 'INTERNAL_ERROR';
 
 /**
  * Structured command error for JSON output
@@ -89,12 +85,7 @@ export function ioError(message: string, details?: string): CliError {
  * Create an internal error (unexpected issues)
  */
 export function internalError(message: string, details?: string): CliError {
-  return new CliError(
-    message,
-    ExitCode.GENERAL_ERROR,
-    'INTERNAL_ERROR',
-    details
-  );
+  return new CliError(message, ExitCode.GENERAL_ERROR, 'INTERNAL_ERROR', details);
 }
 
 /**

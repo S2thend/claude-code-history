@@ -57,11 +57,7 @@ describe('error utilities (T066)', () => {
     });
 
     it('should create error without details', () => {
-      const error = new CliError(
-        'No details',
-        ExitCode.GENERAL_ERROR,
-        'INTERNAL_ERROR'
-      );
+      const error = new CliError('No details', ExitCode.GENERAL_ERROR, 'INTERNAL_ERROR');
 
       expect(error.details).toBeUndefined();
     });
@@ -73,12 +69,7 @@ describe('error utilities (T066)', () => {
 
     describe('toCommandError', () => {
       it('should convert to CommandError with details', () => {
-        const error = new CliError(
-          'Test message',
-          ExitCode.NOT_FOUND,
-          'NOT_FOUND',
-          'Some details'
-        );
+        const error = new CliError('Test message', ExitCode.NOT_FOUND, 'NOT_FOUND', 'Some details');
 
         const commandError = error.toCommandError();
 
@@ -90,11 +81,7 @@ describe('error utilities (T066)', () => {
       });
 
       it('should convert to CommandError without details', () => {
-        const error = new CliError(
-          'Test message',
-          ExitCode.IO_ERROR,
-          'IO_ERROR'
-        );
+        const error = new CliError('Test message', ExitCode.IO_ERROR, 'IO_ERROR');
 
         const commandError = error.toCommandError();
 
@@ -193,7 +180,9 @@ describe('error utilities (T066)', () => {
       const error = notFoundError('Session not found', "Try 'cch list' to see available sessions.");
       const formatted = formatErrorHuman(error);
 
-      expect(formatted).toBe("Error: Session not found\n\nTry 'cch list' to see available sessions.");
+      expect(formatted).toBe(
+        "Error: Session not found\n\nTry 'cch list' to see available sessions."
+      );
     });
   });
 

@@ -623,6 +623,78 @@ describe('transformEntry', () => {
       expect(result.content).toEqual([]);
     }
   });
+
+  it('should transform agent progress entries using normalizedMessages text', () => {
+    const entry = {
+      type: 'progress',
+      uuid: 'msg-progress-agent',
+      parentUuid: 'msg-001',
+      timestamp: '2026-04-01T00:00:01.000Z',
+      cwd: '/tmp/project-progress',
+      gitBranch: 'main',
+      isSidechain: false,
+      data: {
+        type: 'agent_progress',
+        message: {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'tool_use', id: 'toolu_123', name: 'Glob', input: {} }],
+          },
+        },
+        normalizedMessages: [
+          {
+            type: 'assistant',
+            message: {
+              role: 'assistant',
+              content: [{ type: 'text', text: 'Scanning memory-related files now.' }],
+            },
+          },
+          {
+            type: 'assistant',
+            message: {
+              role: 'assistant',
+              content: [{ type: 'tool_use', id: 'toolu_123', name: 'Glob', input: {} }],
+            },
+          },
+        ],
+      },
+    };
+
+    const result = transformEntry(entry);
+
+    expect(result?.type).toBe('progress');
+    if (result?.type === 'progress') {
+      expect(result.content).toEqual([
+        { type: 'text', text: 'Scanning memory-related files now.' },
+      ]);
+    }
+  });
+
+  it('should preserve unreadable hook progress entries as empty content', () => {
+    const entry = {
+      type: 'progress',
+      uuid: 'msg-progress-hook',
+      parentUuid: 'msg-001',
+      timestamp: '2026-04-01T00:00:01.000Z',
+      cwd: '/tmp/project-progress',
+      gitBranch: 'main',
+      isSidechain: false,
+      data: {
+        type: 'hook_progress',
+        hookEvent: 'PostToolUse',
+        hookName: 'PostToolUse:Read',
+        command: 'callback',
+      },
+    };
+
+    const result = transformEntry(entry);
+
+    expect(result?.type).toBe('progress');
+    if (result?.type === 'progress') {
+      expect(result.content).toEqual([]);
+    }
+  });
 });
 
 describe('parseSessionFile', () => {

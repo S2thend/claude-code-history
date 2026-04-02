@@ -48,10 +48,7 @@ export function toPaginationInfo(pagination: Pagination): PaginationInfo {
 /**
  * Create a successful command result
  */
-export function successResult<T>(
-  data: T,
-  pagination?: Pagination
-): CommandResult<T> {
+export function successResult<T>(data: T, pagination?: Pagination): CommandResult<T> {
   return {
     success: true,
     data,
@@ -104,11 +101,7 @@ export function outputJson<T>(result: CommandResult<T>): void {
  * @param json - Whether to output as JSON
  * @param humanOutput - Human-readable string (used when json=false)
  */
-export function output<T>(
-  result: CommandResult<T>,
-  json: boolean,
-  humanOutput?: string
-): void {
+export function output<T>(result: CommandResult<T>, json: boolean, humanOutput?: string): void {
   if (json) {
     outputJson(result);
   } else if (humanOutput !== undefined) {
@@ -145,10 +138,7 @@ export function handleError(error: unknown, json: boolean): ExitCode {
  * @param itemName - Name of items being paginated (e.g., "sessions", "matches")
  * @returns Human-readable pagination hint or empty string if not needed
  */
-export function formatPaginationHint(
-  pagination: PaginationInfo,
-  itemName: string
-): string {
+export function formatPaginationHint(pagination: PaginationInfo, itemName: string): string {
   if (!pagination.hasMore) {
     return '';
   }

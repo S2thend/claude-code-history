@@ -84,10 +84,7 @@ describe('computeTokenStats', () => {
   });
 
   it('should return zeros when only user messages exist', () => {
-    const messages: Message[] = [
-      createUserMessage('Hello'),
-      createUserMessage('Another message'),
-    ];
+    const messages: Message[] = [createUserMessage('Hello'), createUserMessage('Another message')];
 
     const stats = computeTokenStats(messages);
 

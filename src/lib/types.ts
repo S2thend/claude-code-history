@@ -431,6 +431,8 @@ export interface RawSessionEntry {
   isSidechain?: boolean;
   isMeta?: boolean;
   message?: RawMessage;
+  data?: unknown;
+  normalizedMessages?: unknown[];
   summary?: string;
   leafUuid?: string;
   messageId?: string;

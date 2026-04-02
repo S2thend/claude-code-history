@@ -51,11 +51,15 @@ function formatMigrateResult(result: MigrateResult, mode: 'copy' | 'move'): stri
   const lines: string[] = [];
 
   if (result.successCount > 0) {
-    lines.push(`${action} ${result.successCount} session${result.successCount !== 1 ? 's' : ''} successfully.`);
+    lines.push(
+      `${action} ${result.successCount} session${result.successCount !== 1 ? 's' : ''} successfully.`
+    );
   }
 
   if (result.failedCount > 0) {
-    lines.push(`Failed to migrate ${result.failedCount} session${result.failedCount !== 1 ? 's' : ''}:`);
+    lines.push(
+      `Failed to migrate ${result.failedCount} session${result.failedCount !== 1 ? 's' : ''}:`
+    );
     for (const error of result.errors) {
       lines.push(`  - ${error.sessionId}: ${error.error}`);
     }
@@ -87,7 +91,7 @@ async function executeMigrate(
   if (!options.destination) {
     const exitCode = handleError(
       new Error(
-        "Destination required. Use --destination or -D to specify the target workspace.\n\nUsage: cch migrate <session> --destination <path>\n       cch migrate --all --source <path> --destination <path>"
+        'Destination required. Use --destination or -D to specify the target workspace.\n\nUsage: cch migrate <session> --destination <path>\n       cch migrate --all --source <path> --destination <path>'
       ),
       options.json
     );
@@ -102,7 +106,7 @@ async function executeMigrate(
       if (!options.source) {
         const exitCode = handleError(
           new Error(
-            "Source workspace required when using --all.\n\nUsage: cch migrate --all --source <path> --destination <path>"
+            'Source workspace required when using --all.\n\nUsage: cch migrate --all --source <path> --destination <path>'
           ),
           options.json
         );
@@ -134,7 +138,7 @@ async function executeMigrate(
       // No session specified and --all not set
       const exitCode = handleError(
         new Error(
-          "Session identifier required. Provide a session index/UUID or use --all.\n\nUsage: cch migrate <session> --destination <path>\n       cch migrate --all --source <path> --destination <path>"
+          'Session identifier required. Provide a session index/UUID or use --all.\n\nUsage: cch migrate <session> --destination <path>\n       cch migrate --all --source <path> --destination <path>'
         ),
         options.json
       );
@@ -175,7 +179,7 @@ async function executeMigrate(
       const exitCode = handleError(
         notFoundError(
           `Workspace not found: ${options.source}`,
-          "Make sure the source workspace path exists and contains sessions."
+          'Make sure the source workspace path exists and contains sessions.'
         ),
         options.json
       );
@@ -208,15 +212,20 @@ export function registerMigrateCommand(program: Command): void {
     .option('-S, --source <path>', 'Source workspace path (required with --all)')
     .option('-m, --mode <mode>', 'Migration mode: copy or move', 'copy')
     .option('-a, --all', 'Migrate all sessions from source workspace', false)
-    .action(async (sessionArg: string | undefined, cmdOptions: Omit<MigrateOptions, keyof GlobalOptions>) => {
-      const globalOptions = program.opts() as GlobalOptions;
-      const options: MigrateOptions = { ...globalOptions, ...cmdOptions };
+    .action(
+      async (
+        sessionArg: string | undefined,
+        cmdOptions: Omit<MigrateOptions, keyof GlobalOptions>
+      ) => {
+        const globalOptions = program.opts() as GlobalOptions;
+        const options: MigrateOptions = { ...globalOptions, ...cmdOptions };
 
-      try {
-        await executeMigrate(sessionArg, options);
-      } catch (error) {
-        const exitCode = handleError(error, options.json);
-        process.exit(exitCode);
+        try {
+          await executeMigrate(sessionArg, options);
+        } catch (error) {
+          const exitCode = handleError(error, options.json);
+          process.exit(exitCode);
+        }
       }
-    });
+    );
 }

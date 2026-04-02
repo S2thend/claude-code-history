@@ -256,6 +256,56 @@ function parseProgressContent(rawContent: unknown): ProgressContent[] {
     .filter((item): item is ProgressContent => item !== null);
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function extractMessageContent(value: unknown): unknown {
+  const record = asRecord(value);
+  if (!record) {
+    return undefined;
+  }
+
+  const nestedMessage = asRecord(record.message);
+  if (nestedMessage && 'content' in nestedMessage) {
+    return nestedMessage.content;
+  }
+
+  if ('content' in record) {
+    return record.content;
+  }
+
+  return undefined;
+}
+
+function extractProgressContent(entry: RawSessionEntry): ProgressContent[] {
+  const directContent = parseProgressContent(entry.message?.content);
+  if (directContent.length > 0) {
+    return directContent;
+  }
+
+  const data = asRecord(entry.data);
+  const nestedNormalizedMessages = Array.isArray(data?.normalizedMessages)
+    ? data.normalizedMessages
+    : [];
+  const normalizedMessages = Array.isArray(entry.normalizedMessages)
+    ? entry.normalizedMessages
+    : nestedNormalizedMessages;
+  const normalizedContent = normalizedMessages.flatMap((message) =>
+    parseProgressContent(extractMessageContent(message))
+  );
+  if (normalizedContent.length > 0) {
+    return normalizedContent;
+  }
+
+  const nestedContent = parseProgressContent(extractMessageContent(data?.message));
+  if (nestedContent.length > 0) {
+    return nestedContent;
+  }
+
+  return [];
+}
+
 /**
  * Transform a raw session entry into a typed Message.
  * @param entry - Raw parsed entry from JSONL
@@ -298,13 +348,12 @@ export function transformEntry(entry: RawSessionEntry): Message | null {
     }
 
     case 'progress': {
-      const message = entry.message as RawMessage | undefined;
       return {
         type: 'progress',
         uuid,
         parentUuid,
         timestamp,
-        content: parseProgressContent(message?.content),
+        content: extractProgressContent(entry),
         cwd: entry.cwd ?? '',
         gitBranch: entry.gitBranch ?? null,
         isSidechain: entry.isSidechain ?? false,

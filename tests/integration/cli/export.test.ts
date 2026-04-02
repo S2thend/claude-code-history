@@ -50,18 +50,19 @@ function createTestSession(
     sessionId: sessionId,
     cwd: projectPath,
     version: '2.0.0',
-    message: msg.type === 'user'
-      ? {
-          role: 'user',
-          content: msg.content,
-        }
-      : {
-          role: 'assistant',
-          model: 'claude-3-sonnet',
-          content: [{ type: 'text', text: msg.content }],
-          stop_reason: 'end_turn',
-          usage: { input_tokens: 100, output_tokens: 200 },
-        },
+    message:
+      msg.type === 'user'
+        ? {
+            role: 'user',
+            content: msg.content,
+          }
+        : {
+            role: 'assistant',
+            model: 'claude-3-sonnet',
+            content: [{ type: 'text', text: msg.content }],
+            stop_reason: 'end_turn',
+            usage: { input_tokens: 100, output_tokens: 200 },
+          },
   }));
 
   // Add summary entry
@@ -83,7 +84,10 @@ function createTestSession(
 /**
  * Execute CLI command and return stdout/stderr
  */
-function runCli(args: string, dataPath?: string): { stdout: string; stderr: string; exitCode: number } {
+function runCli(
+  args: string,
+  dataPath?: string
+): { stdout: string; stderr: string; exitCode: number } {
   const dataPathArg = dataPath ? `--data-path "${dataPath}"` : `--data-path "${TEST_DATA_DIR}"`;
   try {
     const stdout = execSync(`node ${CLI_PATH} ${dataPathArg} ${args}`, {
@@ -150,10 +154,15 @@ describe('cch export', () => {
 
   describe('export to stdout JSON (T042)', () => {
     it('should export session to JSON format by default', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'Hello' },
-        { type: 'assistant', content: 'Hi there!' },
-      ], { summary: 'Test export session' });
+      createTestSession(
+        '/Users/dev/project1',
+        'session-1',
+        [
+          { type: 'user', content: 'Hello' },
+          { type: 'assistant', content: 'Hi there!' },
+        ],
+        { summary: 'Test export session' }
+      );
 
       const { stdout, exitCode } = runCli('export 0');
 
@@ -165,9 +174,9 @@ describe('cch export', () => {
     });
 
     it('should include session metadata in JSON', () => {
-      createTestSession('/Users/dev/myproject', 'session-1', [
-        { type: 'user', content: 'Test' },
-      ], { summary: 'Metadata test' });
+      createTestSession('/Users/dev/myproject', 'session-1', [{ type: 'user', content: 'Test' }], {
+        summary: 'Metadata test',
+      });
 
       const { stdout } = runCli('export 0 --format json');
       const json = JSON.parse(stdout);
@@ -194,10 +203,15 @@ describe('cch export', () => {
 
   describe('export to stdout Markdown (T043)', () => {
     it('should export session to Markdown format', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'Hello Markdown' },
-        { type: 'assistant', content: 'Markdown response' },
-      ], { summary: 'Markdown Test Session' });
+      createTestSession(
+        '/Users/dev/project1',
+        'session-1',
+        [
+          { type: 'user', content: 'Hello Markdown' },
+          { type: 'assistant', content: 'Markdown response' },
+        ],
+        { summary: 'Markdown Test Session' }
+      );
 
       const { stdout, exitCode } = runCli('export 0 --format markdown');
 
@@ -208,9 +222,7 @@ describe('cch export', () => {
     });
 
     it('should include metadata table in Markdown', () => {
-      createTestSession('/Users/dev/myproject', 'session-1', [
-        { type: 'user', content: 'Test' },
-      ]);
+      createTestSession('/Users/dev/myproject', 'session-1', [{ type: 'user', content: 'Test' }]);
 
       const { stdout } = runCli('export 0 -F markdown');
 
@@ -233,9 +245,7 @@ describe('cch export', () => {
     });
 
     it('should accept "md" as format shorthand', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'Test' },
-      ]);
+      createTestSession('/Users/dev/project1', 'session-1', [{ type: 'user', content: 'Test' }]);
 
       const { stdout, exitCode } = runCli('export 0 --format md');
 
@@ -246,9 +256,12 @@ describe('cch export', () => {
 
   describe('export to file with --output (T044)', () => {
     it('should write JSON to file', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'File export test' },
-      ], { summary: 'File export' });
+      createTestSession(
+        '/Users/dev/project1',
+        'session-1',
+        [{ type: 'user', content: 'File export test' }],
+        { summary: 'File export' }
+      );
 
       const outputFile = join(TEST_OUTPUT_DIR, 'export.json');
       const { stdout, exitCode } = runCli(`export 0 --output "${outputFile}"`);
@@ -263,9 +276,12 @@ describe('cch export', () => {
     });
 
     it('should write Markdown to file', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'Markdown file test' },
-      ], { summary: 'MD File Test' });
+      createTestSession(
+        '/Users/dev/project1',
+        'session-1',
+        [{ type: 'user', content: 'Markdown file test' }],
+        { summary: 'MD File Test' }
+      );
 
       const outputFile = join(TEST_OUTPUT_DIR, 'export.md');
       const { exitCode } = runCli(`export 0 --format markdown --output "${outputFile}"`);
@@ -306,12 +322,18 @@ describe('cch export', () => {
 
   describe('export --all option (T045)', () => {
     it('should export all sessions to JSON', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'First session' },
-      ], { summary: 'First' });
-      createTestSession('/Users/dev/project2', 'session-2', [
-        { type: 'user', content: 'Second session' },
-      ], { summary: 'Second' });
+      createTestSession(
+        '/Users/dev/project1',
+        'session-1',
+        [{ type: 'user', content: 'First session' }],
+        { summary: 'First' }
+      );
+      createTestSession(
+        '/Users/dev/project2',
+        'session-2',
+        [{ type: 'user', content: 'Second session' }],
+        { summary: 'Second' }
+      );
 
       const { stdout, exitCode } = runCli('export --all --format json');
 
@@ -322,12 +344,18 @@ describe('cch export', () => {
     });
 
     it('should export all sessions to Markdown', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'First markdown' },
-      ], { summary: 'First MD' });
-      createTestSession('/Users/dev/project2', 'session-2', [
-        { type: 'user', content: 'Second markdown' },
-      ], { summary: 'Second MD' });
+      createTestSession(
+        '/Users/dev/project1',
+        'session-1',
+        [{ type: 'user', content: 'First markdown' }],
+        { summary: 'First MD' }
+      );
+      createTestSession(
+        '/Users/dev/project2',
+        'session-2',
+        [{ type: 'user', content: 'Second markdown' }],
+        { summary: 'Second MD' }
+      );
 
       const { stdout, exitCode } = runCli('export --all --format markdown');
 
@@ -338,12 +366,8 @@ describe('cch export', () => {
     });
 
     it('should write all sessions to file', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'First' },
-      ]);
-      createTestSession('/Users/dev/project2', 'session-2', [
-        { type: 'user', content: 'Second' },
-      ]);
+      createTestSession('/Users/dev/project1', 'session-1', [{ type: 'user', content: 'First' }]);
+      createTestSession('/Users/dev/project2', 'session-2', [{ type: 'user', content: 'Second' }]);
 
       const outputFile = join(TEST_OUTPUT_DIR, 'all-sessions.json');
       const { exitCode } = runCli(`export --all --output "${outputFile}"`);
@@ -359,9 +383,7 @@ describe('cch export', () => {
 
   describe('error handling', () => {
     it('should error when no session specified and no --all flag', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'Test' },
-      ]);
+      createTestSession('/Users/dev/project1', 'session-1', [{ type: 'user', content: 'Test' }]);
 
       const { exitCode, stdout, stderr } = runCli('export');
 
@@ -371,9 +393,7 @@ describe('cch export', () => {
     });
 
     it('should error for invalid format', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'Test' },
-      ]);
+      createTestSession('/Users/dev/project1', 'session-1', [{ type: 'user', content: 'Test' }]);
 
       const { exitCode, stdout, stderr } = runCli('export 0 --format invalid');
 
@@ -383,9 +403,7 @@ describe('cch export', () => {
     });
 
     it('should error for non-existent session', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'Test' },
-      ]);
+      createTestSession('/Users/dev/project1', 'session-1', [{ type: 'user', content: 'Test' }]);
 
       const { exitCode, stdout, stderr } = runCli('export 999');
 

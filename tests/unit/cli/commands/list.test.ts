@@ -25,7 +25,14 @@ vi.mock('../../../../src/cli/formatters/pager.js', () => ({
   outputWithPager: vi.fn(),
 }));
 
-import { listSessions, getSession, isDataNotFoundError, createEmptyStats, computeTokenStats, addStats } from '../../../../src/lib/index.js';
+import {
+  listSessions,
+  getSession,
+  isDataNotFoundError,
+  createEmptyStats,
+  computeTokenStats,
+  addStats,
+} from '../../../../src/lib/index.js';
 import { outputWithPager } from '../../../../src/cli/formatters/pager.js';
 
 describe('list command', () => {

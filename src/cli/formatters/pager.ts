@@ -44,10 +44,7 @@ function isInteractive(): boolean {
  * @param full - Whether to bypass pagination (--full flag)
  * @returns Promise that resolves when output is complete
  */
-export async function outputWithPager(
-  content: string,
-  full: boolean
-): Promise<void> {
+export async function outputWithPager(content: string, full: boolean): Promise<void> {
   // Direct output if --full flag or not interactive
   if (full || !isInteractive()) {
     process.stdout.write(content);

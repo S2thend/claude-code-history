@@ -93,6 +93,37 @@ function createTestSession(
   return sessionId;
 }
 
+function createRawSession(
+  projectPath: string,
+  sessionLabel: string,
+  entries: Record<string, unknown>[]
+): string {
+  const sessionId = generateTestUUID();
+  const encodedPath = projectPath.replace(/\//g, '-');
+  const sessionDir = join(TEST_PROJECTS_DIR, encodedPath);
+
+  if (!existsSync(sessionDir)) {
+    mkdirSync(sessionDir, { recursive: true });
+  }
+
+  const resolvedEntries = entries.map((entry) => ({ ...entry, sessionId }));
+  const leafUuid = String(resolvedEntries.at(-1)?.uuid ?? '');
+  resolvedEntries.unshift({
+    type: 'summary',
+    uuid: `summary-${sessionId}`,
+    parentUuid: null,
+    timestamp: new Date().toISOString(),
+    summary: `Test session: ${sessionLabel}`,
+    leafUuid,
+  });
+
+  const jsonlContent = resolvedEntries.map((entry) => JSON.stringify(entry)).join('\n');
+  writeFileSync(join(sessionDir, `${sessionId}.jsonl`), jsonlContent);
+
+  testSessionIds.push(sessionId);
+  return sessionId;
+}
+
 /**
  * Execute CLI command and return stdout/stderr
  */
@@ -370,6 +401,84 @@ describe('cch view', () => {
       expect(stdout).toContain('Tool is scanning project files...');
       expect(stdout).not.toContain('ASSISTANT');
       expect(stdout).not.toContain('USER');
+    });
+
+    it('should render readable text from nested real-style agent progress entries', () => {
+      createRawSession('/Users/dev/project1', 'progress-real-schema', [
+        {
+          type: 'user',
+          uuid: 'msg-user',
+          parentUuid: null,
+          timestamp: new Date(Date.now() - 120000).toISOString(),
+          cwd: '/Users/dev/project1',
+          gitBranch: 'main',
+          version: '2.1.9',
+          message: {
+            role: 'user',
+            content: 'Start scan',
+          },
+        },
+        {
+          type: 'progress',
+          uuid: 'msg-progress',
+          parentUuid: 'msg-user',
+          timestamp: new Date(Date.now() - 60000).toISOString(),
+          cwd: '/Users/dev/project1',
+          gitBranch: 'main',
+          version: '2.1.9',
+          data: {
+            type: 'agent_progress',
+            message: {
+              type: 'assistant',
+              message: {
+                role: 'assistant',
+                content: [{ type: 'tool_use', id: 'toolu_123', name: 'Glob', input: {} }],
+              },
+            },
+            normalizedMessages: [
+              {
+                type: 'assistant',
+                message: {
+                  role: 'assistant',
+                  content: [{ type: 'text', text: 'I will scan the project files now.' }],
+                },
+              },
+              {
+                type: 'assistant',
+                message: {
+                  role: 'assistant',
+                  content: [{ type: 'tool_use', id: 'toolu_123', name: 'Glob', input: {} }],
+                },
+              },
+            ],
+          },
+        },
+        {
+          type: 'assistant',
+          uuid: 'msg-assistant',
+          parentUuid: 'msg-progress',
+          timestamp: new Date().toISOString(),
+          message: {
+            role: 'assistant',
+            model: 'claude-3-sonnet',
+            content: [{ type: 'text', text: 'Done' }],
+            stop_reason: 'end_turn',
+            usage: {
+              input_tokens: 100,
+              output_tokens: 200,
+              cache_creation_input_tokens: 500,
+              cache_read_input_tokens: 5000,
+            },
+          },
+        },
+      ]);
+
+      const { stdout, exitCode } = runCli('view 0 --only progress --full');
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('PROGRESS');
+      expect(stdout).toContain('I will scan the project files now.');
+      expect(stdout).not.toContain('No human-readable progress text captured');
     });
 
     it('should return an informative empty state when no progress messages exist', () => {
