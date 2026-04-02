@@ -48,18 +48,24 @@ function createTestSession(
     sessionId: sessionId,
     cwd: projectPath,
     version: '2.0.0',
-    message: msg.type === 'user'
-      ? {
-          role: 'user',
-          content: msg.content,
-        }
-      : {
-          role: 'assistant',
-          model: 'claude-3-sonnet',
-          content: [{ type: 'text', text: msg.content }],
-          stop_reason: 'end_turn',
-          usage: { input_tokens: 100, output_tokens: 200, cache_creation_input_tokens: 500, cache_read_input_tokens: 5000 },
-        },
+    message:
+      msg.type === 'user'
+        ? {
+            role: 'user',
+            content: msg.content,
+          }
+        : {
+            role: 'assistant',
+            model: 'claude-3-sonnet',
+            content: [{ type: 'text', text: msg.content }],
+            stop_reason: 'end_turn',
+            usage: {
+              input_tokens: 100,
+              output_tokens: 200,
+              cache_creation_input_tokens: 500,
+              cache_read_input_tokens: 5000,
+            },
+          },
   }));
 
   // Add summary entry
@@ -185,9 +191,7 @@ describe('cch list', () => {
     });
 
     it('should include pagination info in JSON output', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'Hello' },
-      ]);
+      createTestSession('/Users/dev/project1', 'session-1', [{ type: 'user', content: 'Hello' }]);
 
       const { stdout } = runCli('list --json');
       const json = JSON.parse(stdout);
@@ -200,9 +204,7 @@ describe('cch list', () => {
     });
 
     it('should include session index in each data item', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'Hello' },
-      ]);
+      createTestSession('/Users/dev/project1', 'session-1', [{ type: 'user', content: 'Hello' }]);
 
       const { stdout } = runCli('list --json');
       const json = JSON.parse(stdout);
@@ -228,9 +230,7 @@ describe('cch list', () => {
     });
 
     it('should show message when no sessions match workspace filter', () => {
-      createTestSession('/Users/dev/project-a', 'session-1', [
-        { type: 'user', content: 'Hello' },
-      ]);
+      createTestSession('/Users/dev/project-a', 'session-1', [{ type: 'user', content: 'Hello' }]);
 
       const { stdout } = runCli('list --workspace /nonexistent/path');
 
@@ -241,15 +241,9 @@ describe('cch list', () => {
   describe('--limit and --offset pagination (T015)', () => {
     it('should respect --limit option', () => {
       // Create multiple sessions
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'First' },
-      ]);
-      createTestSession('/Users/dev/project2', 'session-2', [
-        { type: 'user', content: 'Second' },
-      ]);
-      createTestSession('/Users/dev/project3', 'session-3', [
-        { type: 'user', content: 'Third' },
-      ]);
+      createTestSession('/Users/dev/project1', 'session-1', [{ type: 'user', content: 'First' }]);
+      createTestSession('/Users/dev/project2', 'session-2', [{ type: 'user', content: 'Second' }]);
+      createTestSession('/Users/dev/project3', 'session-3', [{ type: 'user', content: 'Third' }]);
 
       const { stdout } = runCli('list --limit 2 --json');
       const json = JSON.parse(stdout);
@@ -258,12 +252,8 @@ describe('cch list', () => {
     });
 
     it('should respect --offset option', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'First' },
-      ]);
-      createTestSession('/Users/dev/project2', 'session-2', [
-        { type: 'user', content: 'Second' },
-      ]);
+      createTestSession('/Users/dev/project1', 'session-1', [{ type: 'user', content: 'First' }]);
+      createTestSession('/Users/dev/project2', 'session-2', [{ type: 'user', content: 'Second' }]);
 
       const { stdout } = runCli('list --offset 1 --json');
       const json = JSON.parse(stdout);
@@ -275,15 +265,9 @@ describe('cch list', () => {
     });
 
     it('should show pagination hint when more results available', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'First' },
-      ]);
-      createTestSession('/Users/dev/project2', 'session-2', [
-        { type: 'user', content: 'Second' },
-      ]);
-      createTestSession('/Users/dev/project3', 'session-3', [
-        { type: 'user', content: 'Third' },
-      ]);
+      createTestSession('/Users/dev/project1', 'session-1', [{ type: 'user', content: 'First' }]);
+      createTestSession('/Users/dev/project2', 'session-2', [{ type: 'user', content: 'Second' }]);
+      createTestSession('/Users/dev/project3', 'session-3', [{ type: 'user', content: 'Third' }]);
 
       const { stdout } = runCli('list --limit 1 --full');
 

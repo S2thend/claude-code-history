@@ -88,10 +88,7 @@ function getDisplaySummary(session: SessionSummary): string {
  * @param offset - Starting index offset for display
  * @returns Formatted table string
  */
-export function formatSessionTable(
-  sessions: SessionSummary[],
-  offset = 0
-): string {
+export function formatSessionTable(sessions: SessionSummary[], offset = 0): string {
   if (sessions.length === 0) {
     return 'No sessions found.';
   }
@@ -129,18 +126,9 @@ export function formatSessionTable(
     const row = [
       padLeft(String(displayIndex), COLUMN_WIDTHS.idx),
       padRight(formatDate(session.timestamp), COLUMN_WIDTHS.timestamp),
-      padRight(
-        truncatePath(session.projectPath, COLUMN_WIDTHS.path),
-        COLUMN_WIDTHS.path
-      ),
-      padRight(
-        truncate(session.gitBranch ?? '-', COLUMN_WIDTHS.branch),
-        COLUMN_WIDTHS.branch
-      ),
-      padRight(
-        truncate(getDisplaySummary(session), COLUMN_WIDTHS.summary),
-        COLUMN_WIDTHS.summary
-      ),
+      padRight(truncatePath(session.projectPath, COLUMN_WIDTHS.path), COLUMN_WIDTHS.path),
+      padRight(truncate(session.gitBranch ?? '-', COLUMN_WIDTHS.branch), COLUMN_WIDTHS.branch),
+      padRight(truncate(getDisplaySummary(session), COLUMN_WIDTHS.summary), COLUMN_WIDTHS.summary),
       padLeft(String(session.messageCount), COLUMN_WIDTHS.msgs),
     ].join('  ');
 

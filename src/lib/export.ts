@@ -10,7 +10,9 @@ import type {
   Message,
   UserMessage,
   AssistantMessage,
+  ProgressMessage,
   AssistantContent,
+  ProgressContent,
   ToolResultContent,
 } from './types.js';
 import { resolveConfig } from './config.js';
@@ -129,6 +131,17 @@ function formatAssistantContent(content: AssistantContent[]): string {
 }
 
 /**
+ * Format progress content for markdown.
+ */
+function formatProgressContent(content: ProgressContent[]): string {
+  if (content.length === 0) {
+    return '_No human-readable progress text captured._';
+  }
+
+  return content.map((block) => block.text).join('\n\n');
+}
+
+/**
  * Format a single message for markdown.
  */
 function formatMessageMarkdown(message: Message): string | null {
@@ -144,6 +157,20 @@ function formatMessageMarkdown(message: Message): string | null {
       const content = formatAssistantContent(assistantMsg.content);
       const model = assistantMsg.model ? ` (${assistantMsg.model})` : '';
       return `## 🤖 Assistant${model}\n\n${content}`;
+    }
+
+    case 'progress': {
+      const progressMsg = message as ProgressMessage;
+      const content = formatProgressContent(progressMsg.content);
+      const metadata = [
+        `- UUID: \`${progressMsg.uuid}\``,
+        `- Parent UUID: \`${progressMsg.parentUuid ?? 'null'}\``,
+        `- CWD: \`${progressMsg.cwd}\``,
+        `- Git Branch: \`${progressMsg.gitBranch ?? 'null'}\``,
+        `- Sidechain: \`${String(progressMsg.isSidechain)}\``,
+      ].join('\n');
+
+      return `## ⏳ Progress\n\n${content}\n\n${metadata}`;
     }
 
     case 'summary':

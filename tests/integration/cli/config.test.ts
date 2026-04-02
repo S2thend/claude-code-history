@@ -48,18 +48,19 @@ function createTestSession(
     sessionId: sessionId,
     cwd: projectPath,
     version: '2.0.0',
-    message: msg.type === 'user'
-      ? {
-          role: 'user',
-          content: msg.content,
-        }
-      : {
-          role: 'assistant',
-          model: 'claude-3-sonnet',
-          content: [{ type: 'text', text: msg.content }],
-          stop_reason: 'end_turn',
-          usage: { input_tokens: 100, output_tokens: 200 },
-        },
+    message:
+      msg.type === 'user'
+        ? {
+            role: 'user',
+            content: msg.content,
+          }
+        : {
+            role: 'assistant',
+            model: 'claude-3-sonnet',
+            content: [{ type: 'text', text: msg.content }],
+            stop_reason: 'end_turn',
+            usage: { input_tokens: 100, output_tokens: 200 },
+          },
   }));
 
   // Add summary entry
@@ -109,7 +110,10 @@ function runCliWithEnv(
 /**
  * Execute CLI command with --data-path option
  */
-function runCli(args: string, dataPath?: string): { stdout: string; stderr: string; exitCode: number } {
+function runCli(
+  args: string,
+  dataPath?: string
+): { stdout: string; stderr: string; exitCode: number } {
   const dataPathArg = dataPath ? `--data-path "${dataPath}"` : '';
   return runCliWithEnv(`${dataPathArg} ${args}`);
 }
@@ -151,9 +155,9 @@ describe('custom data path configuration (T058-T060)', () => {
 
   describe('--data-path option (T058)', () => {
     it('should use custom data path from --data-path option', () => {
-      createTestSession('/Users/dev/project1', [
-        { type: 'user', content: 'Custom path test' },
-      ], { summary: 'Session from custom path' });
+      createTestSession('/Users/dev/project1', [{ type: 'user', content: 'Custom path test' }], {
+        summary: 'Session from custom path',
+      });
 
       const { stdout, exitCode } = runCli('list', TEST_DATA_DIR);
 
@@ -162,9 +166,7 @@ describe('custom data path configuration (T058-T060)', () => {
     });
 
     it('should work with list command', () => {
-      createTestSession('/Users/dev/project1', [
-        { type: 'user', content: 'List test' },
-      ]);
+      createTestSession('/Users/dev/project1', [{ type: 'user', content: 'List test' }]);
 
       const { stdout, exitCode } = runCli('list', TEST_DATA_DIR);
 
@@ -173,9 +175,7 @@ describe('custom data path configuration (T058-T060)', () => {
     });
 
     it('should work with view command', () => {
-      createTestSession('/Users/dev/project1', [
-        { type: 'user', content: 'View test content' },
-      ]);
+      createTestSession('/Users/dev/project1', [{ type: 'user', content: 'View test content' }]);
 
       const { stdout, exitCode } = runCli('view 0', TEST_DATA_DIR);
 
@@ -195,9 +195,9 @@ describe('custom data path configuration (T058-T060)', () => {
     });
 
     it('should work with export command', () => {
-      createTestSession('/Users/dev/project1', [
-        { type: 'user', content: 'Export test' },
-      ], { summary: 'Export session' });
+      createTestSession('/Users/dev/project1', [{ type: 'user', content: 'Export test' }], {
+        summary: 'Export session',
+      });
 
       const { stdout, exitCode } = runCli('export 0', TEST_DATA_DIR);
 
@@ -207,9 +207,7 @@ describe('custom data path configuration (T058-T060)', () => {
     });
 
     it('should support -d shorthand for --data-path', () => {
-      createTestSession('/Users/dev/project1', [
-        { type: 'user', content: 'Shorthand test' },
-      ]);
+      createTestSession('/Users/dev/project1', [{ type: 'user', content: 'Shorthand test' }]);
 
       const { stdout, exitCode } = runCliWithEnv(`-d "${TEST_DATA_DIR}" list`);
 
@@ -220,9 +218,9 @@ describe('custom data path configuration (T058-T060)', () => {
 
   describe('CCH_DATA_PATH environment variable (T059)', () => {
     it('should use custom data path from environment variable', () => {
-      createTestSession('/Users/dev/project1', [
-        { type: 'user', content: 'Env var test' },
-      ], { summary: 'Session from env path' });
+      createTestSession('/Users/dev/project1', [{ type: 'user', content: 'Env var test' }], {
+        summary: 'Session from env path',
+      });
 
       const { stdout, exitCode } = runCliWithEnv('list', {
         CCH_DATA_PATH: TEST_DATA_DIR,
@@ -233,9 +231,7 @@ describe('custom data path configuration (T058-T060)', () => {
     });
 
     it('should work with all commands via env var', () => {
-      createTestSession('/Users/dev/project1', [
-        { type: 'user', content: 'Env var content' },
-      ]);
+      createTestSession('/Users/dev/project1', [{ type: 'user', content: 'Env var content' }]);
 
       // List command
       const listResult = runCliWithEnv('list', { CCH_DATA_PATH: TEST_DATA_DIR });
@@ -249,9 +245,11 @@ describe('custom data path configuration (T058-T060)', () => {
 
     it('should prefer --data-path over environment variable', () => {
       // Create session in test data dir
-      createTestSession('/Users/dev/project1', [
-        { type: 'user', content: 'Data path priority test' },
-      ], { summary: 'CLI option session' });
+      createTestSession(
+        '/Users/dev/project1',
+        [{ type: 'user', content: 'Data path priority test' }],
+        { summary: 'CLI option session' }
+      );
 
       // Set env var to non-existent path
       const { stdout, exitCode } = runCliWithEnv(`--data-path "${TEST_DATA_DIR}" list`, {

@@ -58,10 +58,7 @@ function parseFilterTypes(input: string): FilterableMessageType[] {
 /**
  * Execute the view command
  */
-async function executeView(
-  sessionArg: string,
-  options: ViewOptions
-): Promise<void> {
+async function executeView(sessionArg: string, options: ViewOptions): Promise<void> {
   if (!sessionArg) {
     const exitCode = handleError(
       usageError(
@@ -96,9 +93,8 @@ async function executeView(
     }
 
     const session = await getSession(sessionRef, libConfig);
-    const totalMessageCount = session.messages.filter(
-      (m) => m.type === 'user' || m.type === 'assistant'
-    ).length;
+    const defaultMessages = filterMessages(session.messages);
+    const totalMessageCount = defaultMessages.length;
 
     // Compute token statistics for the session
     const tokenStats = computeTokenStats(session.messages);
@@ -106,7 +102,7 @@ async function executeView(
     // Apply filter if specified
     const filteredMessages = filterTypes
       ? filterMessages(session.messages, { only: filterTypes })
-      : session.messages;
+      : defaultMessages;
 
     // Check for empty results with filter
     if (filterTypes && filteredMessages.length === 0) {
@@ -189,7 +185,7 @@ export function registerViewCommand(program: Command): void {
     .description("View a session's contents")
     .option(
       '-o, --only <types>',
-      'Filter by message type (user,assistant,tool,thinking,error)'
+      'Filter by message type (user,assistant,tool,thinking,error,progress)'
     )
     .action(async (sessionArg: string, cmdOptions: { only?: string }) => {
       const globalOptions = program.opts() as GlobalOptions;

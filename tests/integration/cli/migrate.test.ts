@@ -48,18 +48,19 @@ function createTestSession(
     sessionId: sessionId,
     cwd: projectPath,
     version: '2.0.0',
-    message: msg.type === 'user'
-      ? {
-          role: 'user',
-          content: msg.content,
-        }
-      : {
-          role: 'assistant',
-          model: 'claude-3-sonnet',
-          content: [{ type: 'text', text: msg.content }],
-          stop_reason: 'end_turn',
-          usage: { input_tokens: 100, output_tokens: 200 },
-        },
+    message:
+      msg.type === 'user'
+        ? {
+            role: 'user',
+            content: msg.content,
+          }
+        : {
+            role: 'assistant',
+            model: 'claude-3-sonnet',
+            content: [{ type: 'text', text: msg.content }],
+            stop_reason: 'end_turn',
+            usage: { input_tokens: 100, output_tokens: 200 },
+          },
   }));
 
   // Add summary entry
@@ -81,7 +82,10 @@ function createTestSession(
 /**
  * Execute CLI command and return stdout/stderr
  */
-function runCli(args: string, dataPath?: string): { stdout: string; stderr: string; exitCode: number } {
+function runCli(
+  args: string,
+  dataPath?: string
+): { stdout: string; stderr: string; exitCode: number } {
   const dataPathArg = dataPath ? `--data-path "${dataPath}"` : `--data-path "${TEST_DATA_DIR}"`;
   try {
     const stdout = execSync(`node ${CLI_PATH} ${dataPathArg} ${args}`, {
@@ -146,10 +150,14 @@ describe('cch migrate', () => {
     it('should copy session to destination by index', () => {
       const sourceProject = '/Users/dev/source';
       const destProject = '/Users/dev/destination';
-      createTestSession(sourceProject, [
-        { type: 'user', content: 'Hello' },
-        { type: 'assistant', content: 'Hi there!' },
-      ], { summary: 'Session to copy' });
+      createTestSession(
+        sourceProject,
+        [
+          { type: 'user', content: 'Hello' },
+          { type: 'assistant', content: 'Hi there!' },
+        ],
+        { summary: 'Session to copy' }
+      );
 
       const { stdout, exitCode } = runCli(`migrate 0 --destination "${destProject}"`);
 
@@ -191,9 +199,7 @@ describe('cch migrate', () => {
     it('should default to copy mode', () => {
       const sourceProject = '/Users/dev/source';
       const destProject = '/Users/dev/destination';
-      createTestSession(sourceProject, [
-        { type: 'user', content: 'Default mode test' },
-      ]);
+      createTestSession(sourceProject, [{ type: 'user', content: 'Default mode test' }]);
 
       const { exitCode } = runCli(`migrate 0 --destination "${destProject}"`);
 
@@ -210,9 +216,7 @@ describe('cch migrate', () => {
     it('should show success message with session count', () => {
       const sourceProject = '/Users/dev/source';
       const destProject = '/Users/dev/destination';
-      createTestSession(sourceProject, [
-        { type: 'user', content: 'Count test' },
-      ]);
+      createTestSession(sourceProject, [{ type: 'user', content: 'Count test' }]);
 
       const { stdout } = runCli(`migrate 0 --destination "${destProject}"`);
 
@@ -224,9 +228,7 @@ describe('cch migrate', () => {
     it('should move session to destination', () => {
       const sourceProject = '/Users/dev/source';
       const destProject = '/Users/dev/destination';
-      createTestSession(sourceProject, [
-        { type: 'user', content: 'Session to move' },
-      ]);
+      createTestSession(sourceProject, [{ type: 'user', content: 'Session to move' }]);
 
       const { stdout, exitCode } = runCli(`migrate 0 --destination "${destProject}" --mode move`);
 
@@ -253,9 +255,7 @@ describe('cch migrate', () => {
     it('should support -m shorthand for mode', () => {
       const sourceProject = '/Users/dev/source';
       const destProject = '/Users/dev/destination';
-      createTestSession(sourceProject, [
-        { type: 'user', content: 'Mode shorthand test' },
-      ]);
+      createTestSession(sourceProject, [{ type: 'user', content: 'Mode shorthand test' }]);
 
       const { exitCode } = runCli(`migrate 0 -D "${destProject}" -m move`);
 
@@ -275,11 +275,17 @@ describe('cch migrate', () => {
     it('should migrate multiple sessions by index', () => {
       const sourceProject = '/Users/dev/source';
       const destProject = '/Users/dev/destination';
-      const sessionId1 = createTestSession(sourceProject, [{ type: 'user', content: 'First session' }]);
-      const sessionId2 = createTestSession(sourceProject, [{ type: 'user', content: 'Second session' }]);
+      const sessionId1 = createTestSession(sourceProject, [
+        { type: 'user', content: 'First session' },
+      ]);
+      const sessionId2 = createTestSession(sourceProject, [
+        { type: 'user', content: 'Second session' },
+      ]);
 
       // Migrate both sessions by UUID to be deterministic
-      const { exitCode } = runCli(`migrate ${sessionId1},${sessionId2} --destination "${destProject}"`);
+      const { exitCode } = runCli(
+        `migrate ${sessionId1},${sessionId2} --destination "${destProject}"`
+      );
 
       expect(exitCode).toBe(0);
 
@@ -310,7 +316,9 @@ describe('cch migrate', () => {
       createTestSession(sourceProject, [{ type: 'user', content: 'Second' }]);
       createTestSession(sourceProject, [{ type: 'user', content: 'Third' }]);
 
-      const { exitCode } = runCli(`migrate --all --source "${sourceProject}" --destination "${destProject}"`);
+      const { exitCode } = runCli(
+        `migrate --all --source "${sourceProject}" --destination "${destProject}"`
+      );
 
       expect(exitCode).toBe(0);
 
@@ -333,9 +341,7 @@ describe('cch migrate', () => {
     });
 
     it('should error when no destination specified', () => {
-      createTestSession('/Users/dev/source', [
-        { type: 'user', content: 'Test' },
-      ]);
+      createTestSession('/Users/dev/source', [{ type: 'user', content: 'Test' }]);
 
       const { exitCode, stdout, stderr } = runCli('migrate 0');
 
@@ -345,9 +351,7 @@ describe('cch migrate', () => {
     });
 
     it('should error for non-existent session', () => {
-      createTestSession('/Users/dev/source', [
-        { type: 'user', content: 'Test' },
-      ]);
+      createTestSession('/Users/dev/source', [{ type: 'user', content: 'Test' }]);
 
       const { exitCode, stdout, stderr } = runCli('migrate 999 --destination /dest');
 
@@ -357,9 +361,7 @@ describe('cch migrate', () => {
     });
 
     it('should error for invalid mode', () => {
-      createTestSession('/Users/dev/source', [
-        { type: 'user', content: 'Test' },
-      ]);
+      createTestSession('/Users/dev/source', [{ type: 'user', content: 'Test' }]);
 
       const { exitCode, stdout, stderr } = runCli('migrate 0 -D /dest --mode invalid');
 
@@ -395,9 +397,7 @@ describe('cch migrate', () => {
     });
 
     it('should error for --all without --source', () => {
-      createTestSession('/Users/dev/source', [
-        { type: 'user', content: 'Test' },
-      ]);
+      createTestSession('/Users/dev/source', [{ type: 'user', content: 'Test' }]);
 
       const { exitCode, stdout, stderr } = runCli('migrate --all --destination /dest');
 

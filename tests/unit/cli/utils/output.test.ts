@@ -104,12 +104,7 @@ describe('output utilities (T067)', () => {
 
   describe('errorResult', () => {
     it('should create failed result from CliError', () => {
-      const error = new CliError(
-        'Test error',
-        ExitCode.NOT_FOUND,
-        'NOT_FOUND',
-        'Some details'
-      );
+      const error = new CliError('Test error', ExitCode.NOT_FOUND, 'NOT_FOUND', 'Some details');
 
       const result = errorResult(error);
 
@@ -123,11 +118,7 @@ describe('output utilities (T067)', () => {
     });
 
     it('should create failed result without details', () => {
-      const error = new CliError(
-        'Simple error',
-        ExitCode.GENERAL_ERROR,
-        'INTERNAL_ERROR'
-      );
+      const error = new CliError('Simple error', ExitCode.GENERAL_ERROR, 'INTERNAL_ERROR');
 
       const result = errorResult(error);
 

@@ -83,7 +83,7 @@ export interface Session extends SessionSummary {
 // =============================================================================
 
 /** Message type discriminator */
-export type MessageType = 'user' | 'assistant' | 'summary' | 'file-history-snapshot';
+export type MessageType = 'user' | 'assistant' | 'progress' | 'summary' | 'file-history-snapshot';
 
 /**
  * Base message structure.
@@ -127,6 +127,17 @@ export interface AssistantMessage extends BaseMessage {
 }
 
 /**
+ * Progress message emitted during tool or task execution.
+ */
+export interface ProgressMessage extends BaseMessage {
+  type: 'progress';
+  content: ProgressContent[];
+  cwd: string;
+  gitBranch: string | null;
+  isSidechain: boolean;
+}
+
+/**
  * Session summary entry.
  */
 export interface SummaryMessage extends BaseMessage {
@@ -145,7 +156,12 @@ export interface FileHistorySnapshotMessage extends BaseMessage {
 }
 
 /** Union of all message types */
-export type Message = UserMessage | AssistantMessage | SummaryMessage | FileHistorySnapshotMessage;
+export type Message =
+  | UserMessage
+  | AssistantMessage
+  | ProgressMessage
+  | SummaryMessage
+  | FileHistorySnapshotMessage;
 
 // =============================================================================
 // Content Types
@@ -153,6 +169,12 @@ export type Message = UserMessage | AssistantMessage | SummaryMessage | FileHist
 
 /** Text content block */
 export interface TextContent {
+  type: 'text';
+  text: string;
+}
+
+/** Readable progress content block */
+export interface ProgressTextContent {
   type: 'text';
   text: string;
 }
@@ -173,6 +195,9 @@ export interface ThinkingContent {
 
 /** Union of assistant content types */
 export type AssistantContent = TextContent | ToolUseContent | ThinkingContent;
+
+/** Union of progress content types */
+export type ProgressContent = ProgressTextContent;
 
 /** Tool result content */
 export interface ToolResultContent {
@@ -196,7 +221,13 @@ export interface ToolResultContent {
  * - `thinking`: AI reasoning/thinking blocks
  * - `error`: Tool results with errors
  */
-export type FilterableMessageType = 'user' | 'assistant' | 'tool' | 'thinking' | 'error';
+export type FilterableMessageType =
+  | 'user'
+  | 'assistant'
+  | 'tool'
+  | 'thinking'
+  | 'error'
+  | 'progress';
 
 /**
  * Options for filtering messages in a session.
@@ -218,6 +249,7 @@ export const VALID_FILTER_TYPES: readonly FilterableMessageType[] = [
   'tool',
   'thinking',
   'error',
+  'progress',
 ] as const;
 
 // =============================================================================
@@ -321,8 +353,8 @@ export interface SearchMatch {
   /** Message UUID containing match */
   messageUuid: string;
 
-  /** Message type (user/assistant) */
-  messageType: 'user' | 'assistant';
+  /** Message type (user/assistant/progress) */
+  messageType: 'user' | 'assistant' | 'progress';
 
   /** Matched text */
   match: string;
@@ -399,6 +431,8 @@ export interface RawSessionEntry {
   isSidechain?: boolean;
   isMeta?: boolean;
   message?: RawMessage;
+  data?: unknown;
+  normalizedMessages?: unknown[];
   summary?: string;
   leafUuid?: string;
   messageId?: string;

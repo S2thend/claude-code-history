@@ -86,14 +86,10 @@ export function computeTokenStats(messages: Message[]): AggregateTokenStats {
  * const combined = addStats(session1Stats, session2Stats);
  * ```
  */
-export function addStats(
-  a: AggregateTokenStats,
-  b: AggregateTokenStats
-): AggregateTokenStats {
+export function addStats(a: AggregateTokenStats, b: AggregateTokenStats): AggregateTokenStats {
   const inputTokens = a.inputTokens + b.inputTokens;
   const outputTokens = a.outputTokens + b.outputTokens;
-  const cacheCreationInputTokens =
-    a.cacheCreationInputTokens + b.cacheCreationInputTokens;
+  const cacheCreationInputTokens = a.cacheCreationInputTokens + b.cacheCreationInputTokens;
   const cacheReadInputTokens = a.cacheReadInputTokens + b.cacheReadInputTokens;
 
   return {
@@ -101,7 +97,6 @@ export function addStats(
     outputTokens,
     cacheCreationInputTokens,
     cacheReadInputTokens,
-    totalTokens:
-      inputTokens + outputTokens + cacheCreationInputTokens + cacheReadInputTokens,
+    totalTokens: inputTokens + outputTokens + cacheCreationInputTokens + cacheReadInputTokens,
   };
 }

@@ -14,11 +14,7 @@ import {
   addStats,
   type AggregateTokenStats,
 } from '../../lib/index.js';
-import {
-  type GlobalOptions,
-  resolveConfig,
-  toLibraryConfig,
-} from '../utils/config.js';
+import { type GlobalOptions, resolveConfig, toLibraryConfig } from '../utils/config.js';
 import { ioError } from '../utils/errors.js';
 import {
   successResult,
@@ -93,10 +89,7 @@ async function executeList(options: ListOptions): Promise<void> {
       }
 
       const tableOutput = formatSessionTable(result.data, offset);
-      const paginationHint = formatPaginationHint(
-        toPaginationInfo(result.pagination),
-        'sessions'
-      );
+      const paginationHint = formatPaginationHint(toPaginationInfo(result.pagination), 'sessions');
 
       // Add stats summary if --stats flag is set
       const statsOutput = aggregateStats ? '\n' + formatAggregateStats(aggregateStats) : '';

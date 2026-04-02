@@ -74,7 +74,7 @@ async function executeExport(
       // No session specified and --all not set
       const exitCode = handleError(
         new Error(
-          "Session identifier required. Provide a session index/UUID or use --all.\n\nUsage: cch export <session> [options]\n       cch export --all [options]"
+          'Session identifier required. Provide a session index/UUID or use --all.\n\nUsage: cch export <session> [options]\n       cch export --all [options]'
         ),
         options.json
       );
@@ -153,15 +153,20 @@ export function registerExportCommand(program: Command): void {
     .option('-F, --format <format>', 'Export format: json or markdown', 'json')
     .option('-o, --output <file>', 'Output file path (stdout if not specified)')
     .option('-a, --all', 'Export all sessions', false)
-    .action(async (sessionArg: string | undefined, cmdOptions: Omit<ExportOptions, keyof GlobalOptions>) => {
-      const globalOptions = program.opts() as GlobalOptions;
-      const options: ExportOptions = { ...globalOptions, ...cmdOptions };
+    .action(
+      async (
+        sessionArg: string | undefined,
+        cmdOptions: Omit<ExportOptions, keyof GlobalOptions>
+      ) => {
+        const globalOptions = program.opts() as GlobalOptions;
+        const options: ExportOptions = { ...globalOptions, ...cmdOptions };
 
-      try {
-        await executeExport(sessionArg, options);
-      } catch (error) {
-        const exitCode = handleError(error, options.json);
-        process.exit(exitCode);
+        try {
+          await executeExport(sessionArg, options);
+        } catch (error) {
+          const exitCode = handleError(error, options.json);
+          process.exit(exitCode);
+        }
       }
-    });
+    );
 }

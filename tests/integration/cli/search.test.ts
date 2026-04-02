@@ -48,18 +48,29 @@ function createTestSession(
     sessionId: sessionId,
     cwd: projectPath,
     version: '2.0.0',
-    message: msg.type === 'user'
-      ? {
-          role: 'user',
-          content: msg.content,
-        }
-      : {
-          role: 'assistant',
-          model: 'claude-3-sonnet',
-          content: [{ type: 'text', text: msg.content }],
-          stop_reason: 'end_turn',
-          usage: { input_tokens: 100, output_tokens: 200 },
-        },
+    message:
+      msg.type === 'user'
+        ? {
+            role: 'user',
+            content: msg.content,
+          }
+        : msg.type === 'progress'
+          ? {
+              role: 'assistant',
+              content: [{ type: 'text', text: msg.content }],
+            }
+          : {
+              role: 'assistant',
+              model: 'claude-3-sonnet',
+              content: [{ type: 'text', text: msg.content }],
+              stop_reason: 'end_turn',
+              usage: {
+                input_tokens: 100,
+                output_tokens: 200,
+                cache_creation_input_tokens: 0,
+                cache_read_input_tokens: 0,
+              },
+            },
   }));
 
   // Add summary entry
@@ -81,7 +92,10 @@ function createTestSession(
 /**
  * Execute CLI command and return stdout/stderr
  */
-function runCli(args: string, dataPath?: string): { stdout: string; stderr: string; exitCode: number } {
+function runCli(
+  args: string,
+  dataPath?: string
+): { stdout: string; stderr: string; exitCode: number } {
   const dataPathArg = dataPath ? `--data-path "${dataPath}"` : `--data-path "${TEST_DATA_DIR}"`;
   try {
     const stdout = execSync(`node ${CLI_PATH} ${dataPathArg} ${args}`, {
@@ -149,9 +163,12 @@ describe('cch search', () => {
     });
 
     it('should show session info for each match', () => {
-      createTestSession('/Users/dev/myproject', 'session-1', [
-        { type: 'user', content: 'Search test keyword here' },
-      ], { summary: 'Test summary for search' });
+      createTestSession(
+        '/Users/dev/myproject',
+        'session-1',
+        [{ type: 'user', content: 'Search test keyword here' }],
+        { summary: 'Test summary for search' }
+      );
 
       const { stdout, exitCode } = runCli('search "keyword" --full');
 
@@ -195,6 +212,20 @@ describe('cch search', () => {
       expect(exitCode).toBe(0);
       expect(stdout).toContain('TypeScript');
     });
+
+    it('should surface progress-only matches with a PROGRESS label', () => {
+      createTestSession('/Users/dev/project1', 'progress-session', [
+        { type: 'user', content: 'Start scanning' },
+        { type: 'progress', content: 'PROGRESS_ONLY_TOKEN discovered during scan' },
+        { type: 'assistant', content: 'Scan complete' },
+      ]);
+
+      const { stdout, exitCode } = runCli('search "PROGRESS_ONLY_TOKEN" --full');
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('PROGRESS');
+      expect(stdout).toContain('PROGRESS_ONLY_TOKEN');
+    });
   });
 
   describe('--session filter (T034)', () => {
@@ -222,6 +253,21 @@ describe('cch search', () => {
 
       expect(exitCode).toBe(0);
       expect(stdout).toContain('xyz123');
+    });
+
+    it('should find progress-only matches within the specified session', () => {
+      const sessionId = createTestSession('/Users/dev/project1', 'progress-session', [
+        { type: 'user', content: 'Start scanning' },
+        { type: 'progress', content: 'AGENT_TASK_SCHEMA discovered during scan' },
+      ]);
+
+      const { stdout, exitCode } = runCli(
+        `search "AGENT_TASK_SCHEMA" --session ${sessionId} --full`
+      );
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('AGENT_TASK_SCHEMA');
+      expect(stdout).toContain('PROGRESS');
     });
   });
 

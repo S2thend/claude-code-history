@@ -24,15 +24,18 @@ export type {
   BaseMessage,
   UserMessage,
   AssistantMessage,
+  ProgressMessage,
   SummaryMessage,
   FileHistorySnapshotMessage,
   Message,
 
   // Content types
   TextContent,
+  ProgressTextContent,
   ToolUseContent,
   ThinkingContent,
   AssistantContent,
+  ProgressContent,
   ToolResultContent,
 
   // Supporting types

@@ -20,11 +20,7 @@ vi.mock('../../../../src/cli/formatters/pager.js', () => ({
   outputWithPager: vi.fn(),
 }));
 
-import {
-  searchSessions,
-  searchInSession,
-  isDataNotFoundError,
-} from '../../../../src/lib/index.js';
+import { searchSessions, searchInSession, isDataNotFoundError } from '../../../../src/lib/index.js';
 import { outputWithPager } from '../../../../src/cli/formatters/pager.js';
 
 function createMatch(index: number): {

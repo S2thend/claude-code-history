@@ -3,7 +3,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { formatSessionTable, formatSessionsForJson, formatAggregateStats } from '../../../../src/cli/formatters/table.js';
+import {
+  formatSessionTable,
+  formatSessionsForJson,
+  formatAggregateStats,
+} from '../../../../src/cli/formatters/table.js';
 import type { SessionSummary, AggregateTokenStats } from '../../../../src/lib/index.js';
 
 function createMockSession(overrides: Partial<SessionSummary> = {}): SessionSummary {
@@ -128,10 +132,7 @@ describe('formatSessionsForJson', () => {
   });
 
   it('should add index to each session', () => {
-    const sessions = [
-      createMockSession({ id: 'id-1' }),
-      createMockSession({ id: 'id-2' }),
-    ];
+    const sessions = [createMockSession({ id: 'id-1' }), createMockSession({ id: 'id-2' })];
     const result = formatSessionsForJson(sessions);
 
     expect(result[0].index).toBe(0);
