@@ -321,7 +321,9 @@ export async function getSession(
     summary: metadata.summary,
     timestamp: metadata.timestamp,
     lastActivityAt: metadata.lastActivityAt,
-    messageCount: messages.filter((m) => m.type === 'user' || m.type === 'assistant').length,
+    messageCount: messages.filter(
+      (m) => m.type === 'user' || m.type === 'assistant' || m.type === 'progress'
+    ).length,
     version: metadata.version,
     gitBranch: metadata.gitBranch,
     agentIds,
@@ -355,7 +357,7 @@ function extractSessionMetadataFromMessages(
     }
 
     // Track timestamps
-    if (msg.type === 'user' || msg.type === 'assistant') {
+    if (msg.type === 'user' || msg.type === 'assistant' || msg.type === 'progress') {
       if (!firstTimestamp || msg.timestamp < firstTimestamp) {
         firstTimestamp = msg.timestamp;
       }
@@ -365,6 +367,10 @@ function extractSessionMetadataFromMessages(
 
       // Extract git branch from user messages
       if (msg.type === 'user') {
+        gitBranch ??= msg.gitBranch;
+      }
+
+      if (msg.type === 'progress') {
         gitBranch ??= msg.gitBranch;
       }
     }
@@ -412,7 +418,9 @@ export async function getAgentSession(agentId: string, config?: LibraryConfig): 
     summary: metadata.summary,
     timestamp: metadata.timestamp,
     lastActivityAt: metadata.lastActivityAt,
-    messageCount: messages.filter((m) => m.type === 'user' || m.type === 'assistant').length,
+    messageCount: messages.filter(
+      (m) => m.type === 'user' || m.type === 'assistant' || m.type === 'progress'
+    ).length,
     version: metadata.version,
     gitBranch: metadata.gitBranch,
     agentIds: [],
@@ -451,6 +459,11 @@ export function classifyMessage(message: Message): FilterableMessageType[] {
 
   // Skip non-displayable message types
   if (message.type === 'summary' || message.type === 'file-history-snapshot') {
+    return types;
+  }
+
+  if (message.type === 'progress') {
+    types.push('progress');
     return types;
   }
 
@@ -530,13 +543,10 @@ export function classifyMessage(message: Message): FilterableMessageType[] {
  * const allMessages = filterMessages(session.messages, {});
  * ```
  */
-export function filterMessages(
-  messages: Message[],
-  options?: MessageFilterOptions
-): Message[] {
+export function filterMessages(messages: Message[], options?: MessageFilterOptions): Message[] {
   // First, filter out non-displayable messages (summary, file-history-snapshot)
   const displayableMessages = messages.filter(
-    (m) => m.type === 'user' || m.type === 'assistant'
+    (m) => m.type === 'user' || m.type === 'assistant' || m.type === 'progress'
   );
 
   // If no filter specified or empty filter, return all displayable messages

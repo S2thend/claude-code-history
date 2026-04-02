@@ -79,9 +79,18 @@ describe('searchSessions', () => {
     '{"type":"assistant","uuid":"msg-008","parentUuid":"msg-007","timestamp":"2025-12-03T10:00:30.000Z","sessionId":"session-003","message":{"model":"claude-opus-4-5-20251101","role":"assistant","content":[{"type":"text","text":"I can see your TypeScript file defines a User interface."}],"stop_reason":"end_turn"}}',
   ].join('\n');
 
+  const session4 = [
+    '{"type":"summary","summary":"Progress search repro","leafUuid":"msg-012"}',
+    '{"type":"user","uuid":"msg-009","parentUuid":null,"timestamp":"2025-12-04T10:00:00.000Z","sessionId":"session-004","cwd":"/test/project","gitBranch":"main","version":"2.0.55","message":{"role":"user","content":"Scan the project files"}}',
+    '{"type":"progress","uuid":"msg-010","parentUuid":"msg-009","timestamp":"2025-12-04T10:00:05.000Z","sessionId":"session-004","cwd":"/test/project","gitBranch":"main","version":"2.0.55","message":{"role":"assistant","content":[{"type":"text","text":"PROGRESS_ONLY_TOKEN discovered in AGENT_TASK_SCHEMA"}]}}',
+    '{"type":"progress","uuid":"msg-011","parentUuid":"msg-010","timestamp":"2025-12-04T10:00:06.000Z","sessionId":"session-004","cwd":"/test/project","gitBranch":"main","version":"2.0.55","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_progress","name":"Glob","input":{"pattern":"src/**/*.ts"}}]}}',
+    '{"type":"assistant","uuid":"msg-012","parentUuid":"msg-011","timestamp":"2025-12-04T10:00:30.000Z","sessionId":"session-004","message":{"model":"claude-opus-4-5-20251101","role":"assistant","content":[{"type":"text","text":"Scan complete"}],"stop_reason":"end_turn"}}',
+  ].join('\n');
+
   const sessionUuid1 = '11111111-1111-1111-1111-111111111111';
   const sessionUuid2 = '22222222-2222-2222-2222-222222222222';
   const sessionUuid3 = '33333333-3333-3333-3333-333333333333';
+  const sessionUuid4 = '44444444-4444-4444-4444-444444444444';
 
   beforeAll(async () => {
     const projectDir = join(projectsPath, '-test-project');
@@ -90,6 +99,7 @@ describe('searchSessions', () => {
     await writeFile(join(projectDir, `${sessionUuid1}.jsonl`), session1);
     await writeFile(join(projectDir, `${sessionUuid2}.jsonl`), session2);
     await writeFile(join(projectDir, `${sessionUuid3}.jsonl`), session3);
+    await writeFile(join(projectDir, `${sessionUuid4}.jsonl`), session4);
   });
 
   afterAll(async () => {
@@ -124,12 +134,42 @@ describe('searchSessions', () => {
       expect(result.data).toEqual([]);
     });
 
-    it('should only search user and assistant messages, not summaries', async () => {
+    it('should not search summary messages', async () => {
       // "discussion" only appears in the summary, not in user/assistant messages
       // Search function explicitly skips summary and file-history-snapshot messages
       const result = await searchSessions('discussion', { dataPath: testDataPath });
 
       expect(result.data.length).toBe(0);
+    });
+  });
+
+  describe('progress message search', () => {
+    it('should find matches that only exist in progress messages across sessions', async () => {
+      const result = await searchSessions('PROGRESS_ONLY_TOKEN', { dataPath: testDataPath });
+
+      expect(result.data.length).toBeGreaterThan(0);
+      expect(result.data.some((match) => match.sessionId === sessionUuid4)).toBe(true);
+      expect(
+        result.data.every((match) => ['user', 'assistant', 'progress'].includes(match.messageType))
+      ).toBe(true);
+    });
+
+    it('should search within a single session for progress-only matches', async () => {
+      const matches = await searchInSession(sessionUuid4, 'AGENT_TASK_SCHEMA', {
+        dataPath: testDataPath,
+      });
+
+      expect(matches.length).toBe(1);
+      expect(matches[0]?.messageType).toBe('progress');
+      expect(matches[0]?.messageUuid).toBe('msg-010');
+    });
+
+    it('should not invent matches from unreadable progress content', async () => {
+      const matches = await searchInSession(sessionUuid4, 'Glob', {
+        dataPath: testDataPath,
+      });
+
+      expect(matches).toEqual([]);
     });
   });
 
@@ -364,5 +404,81 @@ describe('searchSessions unlimited behavior', () => {
 
     const matchedSessionIds = new Set(result.data.map((match) => match.sessionId));
     expect(matchedSessionIds).toEqual(expectedSessionIds);
+  });
+});
+
+describe('searchSessions performance with progress messages', () => {
+  const testDataPath = join(tmpdir(), `claude-search-progress-performance-${Date.now()}`);
+  const projectsPath = join(testDataPath, 'projects');
+  const sessionId = '55555555-5555-5555-5555-555555555555';
+
+  beforeAll(async () => {
+    const projectDir = join(projectsPath, '-test-progress-performance');
+    await mkdir(projectDir, { recursive: true });
+
+    const entries: string[] = [
+      JSON.stringify({
+        type: 'summary',
+        summary: 'Progress performance session',
+        leafUuid: 'msg-119',
+      }),
+    ];
+
+    for (let i = 0; i < 120; i++) {
+      const previousUuid = i === 0 ? null : `msg-${i - 1}`;
+      entries.push(
+        JSON.stringify({
+          type: i % 3 === 0 ? 'progress' : i % 3 === 1 ? 'user' : 'assistant',
+          uuid: `msg-${i}`,
+          parentUuid: previousUuid,
+          timestamp: new Date(Date.UTC(2026, 3, 1, 0, 0, i)).toISOString(),
+          sessionId,
+          cwd: '/test/progress-performance',
+          gitBranch: 'main',
+          version: '2.0.55',
+          message:
+            i % 3 === 2
+              ? {
+                  role: 'assistant',
+                  model: 'claude-opus-4-5-20251101',
+                  content: [{ type: 'text', text: `assistant message ${i}` }],
+                  stop_reason: 'end_turn',
+                  usage: {
+                    input_tokens: 1,
+                    output_tokens: 1,
+                    cache_creation_input_tokens: 0,
+                    cache_read_input_tokens: 0,
+                  },
+                }
+              : i % 3 === 1
+                ? {
+                    role: 'user',
+                    content: `user message ${i}`,
+                  }
+                : {
+                    role: 'assistant',
+                    content: [{ type: 'text', text: `progress performance token ${i}` }],
+                  },
+        })
+      );
+    }
+
+    await writeFile(join(projectDir, `${sessionId}.jsonl`), entries.join('\n'));
+  });
+
+  afterAll(async () => {
+    await rm(testDataPath, { recursive: true, force: true });
+  });
+
+  it('should search a 100+ message session in under one second', async () => {
+    const startedAt = Date.now();
+    const result = await searchSessions('progress performance token 117', {
+      dataPath: testDataPath,
+    });
+    const elapsedMs = Date.now() - startedAt;
+
+    expect(result.pagination.total).toBe(1);
+    expect(result.data[0]?.messageType).toBe('progress');
+    expect(elapsedMs).toBeLessThan(1000);
   });
 });

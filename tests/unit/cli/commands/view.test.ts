@@ -24,7 +24,13 @@ vi.mock('../../../../src/cli/formatters/pager.js', () => ({
   outputWithPager: vi.fn(),
 }));
 
-import { getSession, isSessionNotFoundError, isDataNotFoundError, filterMessages, computeTokenStats } from '../../../../src/lib/index.js';
+import {
+  getSession,
+  isSessionNotFoundError,
+  isDataNotFoundError,
+  filterMessages,
+  computeTokenStats,
+} from '../../../../src/lib/index.js';
 import { outputWithPager } from '../../../../src/cli/formatters/pager.js';
 
 describe('view command', () => {
@@ -186,6 +192,27 @@ describe('view command', () => {
     expect(filterMessages).toHaveBeenCalledWith(
       mockSession.messages,
       expect.objectContaining({ only: ['user', 'assistant'] })
+    );
+  });
+
+  it('should accept progress as a valid filter type', async () => {
+    vi.mocked(getSession).mockResolvedValue(mockSession as any);
+    vi.mocked(filterMessages).mockReturnValue([]);
+    vi.mocked(computeTokenStats).mockReturnValue({
+      inputTokens: 50,
+      outputTokens: 25,
+      totalTokens: 75,
+      cacheCreationInputTokens: 0,
+      cacheReadInputTokens: 0,
+      messageCount: 2,
+    });
+    vi.mocked(outputWithPager).mockResolvedValue();
+
+    await program.parseAsync(['node', 'test', 'view', '0', '--only', 'progress']);
+
+    expect(filterMessages).toHaveBeenCalledWith(
+      mockSession.messages,
+      expect.objectContaining({ only: ['progress'] })
     );
   });
 });

@@ -9,6 +9,7 @@ import type {
   SearchMatch,
   Message,
   AssistantContent,
+  ProgressContent,
   ToolResultContent,
   PaginatedResult,
 } from './types.js';
@@ -57,6 +58,13 @@ function extractUserText(content: string | ToolResultContent[]): string[] {
 }
 
 /**
+ * Extract searchable text from progress content.
+ */
+function extractProgressText(content: ProgressContent[]): string[] {
+  return content.map((block) => block.text);
+}
+
+/**
  * Extract all searchable text from a message.
  */
 function extractMessageText(message: Message): string[] {
@@ -65,6 +73,8 @@ function extractMessageText(message: Message): string[] {
       return extractUserText(message.content);
     case 'assistant':
       return extractAssistantText(message.content);
+    case 'progress':
+      return extractProgressText(message.content);
     case 'summary':
       return [message.summary];
     case 'file-history-snapshot':
@@ -133,8 +143,8 @@ function searchInMessage(
   const matches: SearchMatch[] = [];
   const lowerQuery = query.toLowerCase();
 
-  // Only search user and assistant messages
-  if (message.type !== 'user' && message.type !== 'assistant') {
+  // Only search displayable/searchable transcript messages
+  if (message.type !== 'user' && message.type !== 'assistant' && message.type !== 'progress') {
     return matches;
   }
 

@@ -4,7 +4,12 @@
 
 import { describe, it, expect } from 'vitest';
 import { classifyMessage, filterMessages } from '../../src/lib/session.js';
-import type { Message, UserMessage, AssistantMessage } from '../../src/lib/types.js';
+import type {
+  Message,
+  UserMessage,
+  AssistantMessage,
+  ProgressMessage,
+} from '../../src/lib/types.js';
 
 describe('classifyMessage', () => {
   describe('user messages', () => {
@@ -184,6 +189,22 @@ describe('classifyMessage', () => {
   });
 
   describe('non-displayable messages', () => {
+    it('should classify progress messages as progress', () => {
+      const message: ProgressMessage = {
+        type: 'progress',
+        uuid: 'msg-progress',
+        parentUuid: 'msg-001',
+        timestamp: new Date(),
+        content: [{ type: 'text', text: 'Scanning files' }],
+        cwd: '/test',
+        gitBranch: 'main',
+        isSidechain: false,
+      };
+
+      const types = classifyMessage(message);
+      expect(types).toEqual(['progress']);
+    });
+
     it('should return empty array for summary messages', () => {
       const message = {
         type: 'summary',
@@ -260,6 +281,17 @@ describe('filterMessages', () => {
     ],
   });
 
+  const createProgressMessage = (id: string, text = 'Progress update'): ProgressMessage => ({
+    type: 'progress',
+    uuid: id,
+    parentUuid: null,
+    timestamp: new Date(),
+    content: [{ type: 'text', text }],
+    cwd: '/test',
+    gitBranch: 'main',
+    isSidechain: false,
+  });
+
   const createSummaryMessage = (): Message =>
     ({
       type: 'summary',
@@ -272,31 +304,34 @@ describe('filterMessages', () => {
       createSummaryMessage(),
       createUserMessage('msg-001', 'Hello'),
       createAssistantMessage('msg-002', 'Hi there'),
+      createProgressMessage('msg-003', 'Scanning files'),
     ];
 
     const filtered = filterMessages(messages);
-    expect(filtered.length).toBe(2);
-    expect(filtered.map((m) => m.uuid)).toEqual(['msg-001', 'msg-002']);
+    expect(filtered.length).toBe(3);
+    expect(filtered.map((m) => m.uuid)).toEqual(['msg-001', 'msg-002', 'msg-003']);
   });
 
   it('should return all displayable messages with empty options', () => {
     const messages: Message[] = [
       createUserMessage('msg-001', 'Hello'),
       createAssistantMessage('msg-002', 'Hi there'),
+      createProgressMessage('msg-003'),
     ];
 
     const filtered = filterMessages(messages, {});
-    expect(filtered.length).toBe(2);
+    expect(filtered.length).toBe(3);
   });
 
   it('should return all displayable messages with empty only array', () => {
     const messages: Message[] = [
       createUserMessage('msg-001', 'Hello'),
       createAssistantMessage('msg-002', 'Hi there'),
+      createProgressMessage('msg-003'),
     ];
 
     const filtered = filterMessages(messages, { only: [] });
-    expect(filtered.length).toBe(2);
+    expect(filtered.length).toBe(3);
   });
 
   it('should filter to only user messages', () => {
@@ -333,6 +368,18 @@ describe('filterMessages', () => {
     const filtered = filterMessages(messages, { only: ['tool'] });
     expect(filtered.length).toBe(1);
     expect(filtered[0].uuid).toBe('msg-003');
+  });
+
+  it('should filter to only progress messages', () => {
+    const messages: Message[] = [
+      createUserMessage('msg-001', 'Hello'),
+      createProgressMessage('msg-002', 'Scanning files'),
+      createAssistantMessage('msg-003', 'Hi there'),
+    ];
+
+    const filtered = filterMessages(messages, { only: ['progress'] });
+    expect(filtered.length).toBe(1);
+    expect(filtered[0]?.uuid).toBe('msg-002');
   });
 
   it('should filter to only error messages', () => {
@@ -399,5 +446,16 @@ describe('filterMessages', () => {
     // Should also match 'tool' filter
     const filteredTool = filterMessages(messages, { only: ['tool'] });
     expect(filteredTool.length).toBe(1);
+  });
+
+  it('should preserve transcript order when progress messages are included', () => {
+    const messages: Message[] = [
+      createUserMessage('msg-001', 'Hello'),
+      createProgressMessage('msg-002', 'Scanning files'),
+      createAssistantMessage('msg-003', 'Done'),
+    ];
+
+    const filtered = filterMessages(messages);
+    expect(filtered.map((message) => message.uuid)).toEqual(['msg-001', 'msg-002', 'msg-003']);
   });
 });

@@ -68,18 +68,14 @@ describe('formatSearchResults', () => {
   });
 
   it('should include project name for each match', () => {
-    const matches = [
-      createTestMatch({ projectPath: '/Users/dev/my-awesome-project' }),
-    ];
+    const matches = [createTestMatch({ projectPath: '/Users/dev/my-awesome-project' })];
     const output = formatSearchResults(matches, 'test', 2, defaultPagination);
 
     expect(output).toContain('my-awesome-project');
   });
 
   it('should include session summary', () => {
-    const matches = [
-      createTestMatch({ sessionSummary: 'Discussion about TypeScript' }),
-    ];
+    const matches = [createTestMatch({ sessionSummary: 'Discussion about TypeScript' })];
     const output = formatSearchResults(matches, 'test', 2, defaultPagination);
 
     expect(output).toContain('Discussion about TypeScript');
@@ -104,6 +100,13 @@ describe('formatSearchResults', () => {
     const output = formatSearchResults(matches, 'test', 2, defaultPagination);
 
     expect(output).toContain('ASSISTANT');
+  });
+
+  it('should label progress matches as PROGRESS', () => {
+    const matches = [createTestMatch({ messageType: 'progress' })];
+    const output = formatSearchResults(matches, 'test', 2, defaultPagination);
+
+    expect(output).toContain('PROGRESS');
   });
 
   it('should include line number', () => {

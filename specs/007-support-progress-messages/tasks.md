@@ -23,7 +23,7 @@
 
 **Purpose**: Prepare a reusable progress-entry fixture for implementation and verification across the feature.
 
-- [ ] T001 Create a reusable top-level progress-entry fixture in `tests/fixtures/progress-session.jsonl`
+- [x] T001 Create a reusable top-level progress-entry fixture in `tests/fixtures/progress-session.jsonl`
 
 ---
 
@@ -33,11 +33,11 @@
 
 **⚠️ CRITICAL**: No user story work should begin until this phase is complete.
 
-- [ ] T002 Add `ProgressMessage`, `ProgressContent`, widened `MessageType`, and widened `SearchMatch` definitions in `src/lib/types.ts`
-- [ ] T003 Implement raw `type: "progress"` normalization and full-fidelity metadata preservation in `src/lib/parser.ts`
-- [ ] T004 Update session retrieval counts and activity timestamps to treat progress as displayable transcript content in `src/lib/session.ts`
-- [ ] T005 Re-export progress-related public types from `src/lib/index.ts`
-- [ ] T006 Add foundational parser regression coverage for readable, empty, and non-readable progress entries in `tests/unit/parser.test.ts`
+- [x] T002 Add `ProgressMessage`, `ProgressContent`, widened `MessageType`, and widened `SearchMatch` definitions in `src/lib/types.ts`
+- [x] T003 Implement raw `type: "progress"` normalization and full-fidelity metadata preservation in `src/lib/parser.ts`
+- [x] T004 Update session retrieval counts and activity timestamps to treat progress as displayable transcript content in `src/lib/session.ts`
+- [x] T005 Re-export progress-related public types from `src/lib/index.ts`
+- [x] T006 Add foundational parser regression coverage for readable, empty, and non-readable progress entries in `tests/unit/parser.test.ts`
 
 **Checkpoint**: The library can now preserve progress entries in parsed session data, with progress counted as displayable transcript content.
 
@@ -51,9 +51,9 @@
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Extend searchable progress-text extraction and match typing in `src/lib/search.ts`
-- [ ] T008 [US1] Surface `PROGRESS` search result labels in `src/cli/formatters/search.ts`
-- [ ] T009 [US1] Validate progress-only search results, session-scoped search, empty/non-readable search handling, and the 100+ message performance target in `tests/integration/search-sessions.test.ts` and `tests/integration/cli/search.test.ts`
+- [x] T007 [US1] Extend searchable progress-text extraction and match typing in `src/lib/search.ts`
+- [x] T008 [US1] Surface `PROGRESS` search result labels in `src/cli/formatters/search.ts`
+- [x] T009 [US1] Validate progress-only search results, session-scoped search, empty/non-readable search handling, and the 100+ message performance target in `tests/integration/search-sessions.test.ts` and `tests/integration/cli/search.test.ts`
 
 **Checkpoint**: User Story 1 is complete when progress-only terms become searchable through the existing CLI and library search flows.
 
@@ -67,10 +67,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T010 [US2] Render progress transcript blocks distinctly while surfacing preserved progress metadata in `src/cli/formatters/session.ts`
-- [ ] T011 [US2] Keep `cch view` message totals and JSON filtered counts aligned with progress displayability and fidelity in `src/cli/commands/view.ts`
-- [ ] T012 [US2] Preserve full-fidelity progress entries in JSON and Markdown export rendering in `src/lib/export.ts`
-- [ ] T013 [US2] Validate session retrieval, human-readable view rendering, JSON view output, export fidelity, and empty/non-readable progress handling in `tests/integration/get-session.test.ts`, `tests/unit/cli/formatters/session.test.ts`, `tests/integration/cli/view.test.ts`, and `tests/integration/export-sessions.test.ts`
+- [x] T010 [US2] Render progress transcript blocks distinctly while surfacing preserved progress metadata in `src/cli/formatters/session.ts`
+- [x] T011 [US2] Keep `cch view` message totals and JSON filtered counts aligned with progress displayability and fidelity in `src/cli/commands/view.ts`
+- [x] T012 [US2] Preserve full-fidelity progress entries in JSON and Markdown export rendering in `src/lib/export.ts`
+- [x] T013 [US2] Validate session retrieval, human-readable view rendering, JSON view output, export fidelity, and empty/non-readable progress handling in `tests/integration/get-session.test.ts`, `tests/unit/cli/formatters/session.test.ts`, `tests/integration/cli/view.test.ts`, and `tests/integration/export-sessions.test.ts`
 
 **Checkpoint**: User Story 2 is complete when session views and transcript-style export no longer omit progress messages.
 
@@ -84,11 +84,11 @@
 
 ### Implementation for User Story 3
 
-- [ ] T014 [US3] Add `progress` to filter type definitions and valid filter values in `src/lib/types.ts`
-- [ ] T015 [US3] Classify and retain progress messages during filtered session views in `src/lib/session.ts`
-- [ ] T016 [US3] Accept `progress` in view filter parsing and help text in `src/cli/commands/view.ts`
-- [ ] T017 [US3] Show progress-only filtered states and empty-result messaging in `src/cli/formatters/session.ts`
-- [ ] T018 [US3] Validate dedicated progress filtering, filtered counts, and empty/non-readable filtered output behavior in `tests/unit/cli/commands/view.test.ts` and `tests/integration/cli/view.test.ts`
+- [x] T014 [US3] Add `progress` to filter type definitions and valid filter values in `src/lib/types.ts`
+- [x] T015 [US3] Classify and retain progress messages during filtered session views in `src/lib/session.ts`
+- [x] T016 [US3] Accept `progress` in view filter parsing and help text in `src/cli/commands/view.ts`
+- [x] T017 [US3] Show progress-only filtered states and empty-result messaging in `src/cli/formatters/session.ts`
+- [x] T018 [US3] Validate dedicated progress filtering, filtered counts, and empty/non-readable filtered output behavior in `tests/unit/cli/commands/view.test.ts` and `tests/integration/cli/view.test.ts`
 
 **Checkpoint**: User Story 3 is complete when progress messages can be isolated or combined with other filter values without breaking transcript output.
 
@@ -98,9 +98,9 @@
 
 **Purpose**: Lock in shared regression coverage, update documentation, and validate the end-to-end feature.
 
-- [ ] T019 [P] Add shared session-count and transcript-order regression coverage for progress messages in `tests/unit/session.test.ts`
-- [ ] T020 [P] Update progress-aware command examples, fidelity guarantees, and performance expectations in `README.md`
-- [ ] T021 Run the implementation verification steps documented in `specs/007-support-progress-messages/quickstart.md`
+- [x] T019 [P] Add shared session-count and transcript-order regression coverage for progress messages in `tests/unit/session.test.ts`
+- [x] T020 [P] Update progress-aware command examples, fidelity guarantees, and performance expectations in `README.md`
+- [x] T021 Run the implementation verification steps documented in `specs/007-support-progress-messages/quickstart.md`
 
 ---
 

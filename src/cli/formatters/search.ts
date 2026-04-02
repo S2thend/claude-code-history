@@ -6,6 +6,17 @@
 
 import type { SearchMatch } from '../../lib/index.js';
 
+function getMessageTypeLabel(messageType: SearchMatch['messageType']): string {
+  switch (messageType) {
+    case 'user':
+      return 'USER';
+    case 'assistant':
+      return 'ASSISTANT';
+    case 'progress':
+      return 'PROGRESS';
+  }
+}
+
 /**
  * Get a short display name for the project path
  */
@@ -27,11 +38,7 @@ function truncate(str: string, maxLength: number): string {
 /**
  * Format context lines with line numbers and highlighting
  */
-function formatContext(
-  context: string[],
-  matchLineNumber: number,
-  contextLines: number
-): string {
+function formatContext(context: string[], matchLineNumber: number, contextLines: number): string {
   if (context.length === 0) {
     return '';
   }
@@ -62,10 +69,8 @@ function formatMatch(match: SearchMatch, contextLines: number): string {
 
   // Header: session info
   const project = getProjectName(match.projectPath);
-  const summary = match.sessionSummary
-    ? truncate(match.sessionSummary, 50)
-    : '(no summary)';
-  const role = match.messageType.toUpperCase();
+  const summary = match.sessionSummary ? truncate(match.sessionSummary, 50) : '(no summary)';
+  const role = getMessageTypeLabel(match.messageType);
 
   lines.push(`[${project}] ${summary}`);
   lines.push(`  Session: ${match.sessionId}`);
@@ -129,9 +134,7 @@ export function formatSearchResults(
   // Pagination hint
   if (pagination.hasMore) {
     parts.push('');
-    parts.push(
-      `Use --offset ${pagination.offset + pagination.limit} to see more results.`
-    );
+    parts.push(`Use --offset ${pagination.offset + pagination.limit} to see more results.`);
   }
 
   return parts.join('\n');

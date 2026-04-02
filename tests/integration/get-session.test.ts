@@ -33,8 +33,16 @@ describe('getSession', () => {
     '{"type":"assistant","uuid":"agent-msg-002","parentUuid":"agent-msg-001","timestamp":"2025-12-01T10:05:30.000Z","sessionId":"session-001","agentId":"xyz789","message":{"model":"claude-haiku-4-5-20251001","role":"assistant","content":[{"type":"thinking","thinking":"Let me research..."},{"type":"text","text":"Here are my findings..."}],"stop_reason":"end_turn"}}',
   ].join('\n');
 
+  const progressSession = [
+    '{"type":"summary","summary":"Progress session","leafUuid":"msg-progress-003"}',
+    '{"type":"user","uuid":"msg-progress-001","parentUuid":null,"timestamp":"2026-04-01T00:00:00.000Z","sessionId":"session-004","cwd":"/test/project","gitBranch":"main","version":"2.0.55","message":{"role":"user","content":"Start scanning"}}',
+    '{"type":"progress","uuid":"msg-progress-002","parentUuid":"msg-progress-001","timestamp":"2026-04-01T00:00:01.000Z","sessionId":"session-004","cwd":"/test/project","gitBranch":"main","version":"2.0.55","message":{"role":"assistant","content":[{"type":"text","text":"PROGRESS_ONLY_TOKEN found while scanning"}]}}',
+    '{"type":"assistant","uuid":"msg-progress-003","parentUuid":"msg-progress-002","timestamp":"2026-04-01T00:00:02.000Z","sessionId":"session-004","message":{"model":"claude-opus-4-5-20251101","role":"assistant","content":[{"type":"text","text":"Scan complete"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}',
+  ].join('\n');
+
   const sessionUuid1 = '11111111-1111-1111-1111-111111111111';
   const sessionUuid2 = '22222222-2222-2222-2222-222222222222';
+  const sessionUuid3 = '33333333-3333-3333-3333-333333333333';
 
   beforeAll(async () => {
     const projectDir = join(projectsPath, '-test-project');
@@ -42,6 +50,7 @@ describe('getSession', () => {
 
     await writeFile(join(projectDir, `${sessionUuid1}.jsonl`), session1);
     await writeFile(join(projectDir, `${sessionUuid2}.jsonl`), session2);
+    await writeFile(join(projectDir, `${sessionUuid3}.jsonl`), progressSession);
     await writeFile(join(projectDir, 'agent-xyz789.jsonl'), agentSession);
   });
 
@@ -54,7 +63,7 @@ describe('getSession', () => {
       const session = await getSession(0, { dataPath: testDataPath });
 
       // Should return one of the sessions (order depends on file mtime)
-      expect([sessionUuid1, sessionUuid2]).toContain(session.id);
+      expect([sessionUuid1, sessionUuid2, sessionUuid3]).toContain(session.id);
       expect(session.summary).toBeDefined();
     });
 
@@ -64,7 +73,7 @@ describe('getSession', () => {
 
       // Should return different sessions
       expect(session0.id).not.toBe(session1.id);
-      expect([sessionUuid1, sessionUuid2]).toContain(session1.id);
+      expect([sessionUuid1, sessionUuid2, sessionUuid3]).toContain(session1.id);
     });
 
     it('should throw SessionNotFoundError for out-of-bounds index', async () => {
@@ -119,6 +128,20 @@ describe('getSession', () => {
 
       // messageCount should only count user/assistant, not summary
       expect(session.messageCount).toBe(4); // 2 user + 2 assistant
+    });
+
+    it('should preserve progress messages in the session transcript and counts', async () => {
+      const session = await getSession(sessionUuid3, { dataPath: testDataPath });
+
+      const progressMessages = session.messages.filter((message) => message.type === 'progress');
+      expect(progressMessages).toHaveLength(1);
+      expect(session.messageCount).toBe(3);
+      expect(session.lastActivityAt).toEqual(new Date('2026-04-01T00:00:02.000Z'));
+      if (progressMessages[0]?.type === 'progress') {
+        expect(progressMessages[0].cwd).toBe('/test/project');
+        expect(progressMessages[0].gitBranch).toBe('main');
+        expect(progressMessages[0].parentUuid).toBe('msg-progress-001');
+      }
     });
 
     it('should include project path', async () => {

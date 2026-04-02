@@ -572,6 +572,57 @@ describe('transformEntry', () => {
       expect(content[0].is_error).toBe(true);
     }
   });
+
+  it('should transform progress entries with readable text', () => {
+    const entry = {
+      type: 'progress',
+      uuid: 'msg-progress',
+      parentUuid: 'msg-001',
+      timestamp: '2026-04-01T00:00:01.000Z',
+      cwd: '/tmp/project-progress',
+      gitBranch: 'main',
+      isSidechain: false,
+      message: {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Scanning src/lib/types.ts' }],
+      },
+    };
+
+    const result = transformEntry(entry);
+
+    expect(result?.type).toBe('progress');
+    if (result?.type === 'progress') {
+      expect(result.content).toEqual([{ type: 'text', text: 'Scanning src/lib/types.ts' }]);
+      expect(result.cwd).toBe('/tmp/project-progress');
+      expect(result.gitBranch).toBe('main');
+      expect(result.isSidechain).toBe(false);
+    }
+  });
+
+  it('should transform progress entries with unreadable content safely', () => {
+    const entry = {
+      type: 'progress',
+      uuid: 'msg-progress',
+      parentUuid: 'msg-001',
+      timestamp: '2026-04-01T00:00:01.000Z',
+      cwd: '/tmp/project-progress',
+      gitBranch: 'main',
+      isSidechain: false,
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'tool_use', id: 'toolu_123', name: 'Glob', input: { pattern: 'src/**/*.ts' } },
+        ],
+      },
+    };
+
+    const result = transformEntry(entry);
+
+    expect(result?.type).toBe('progress');
+    if (result?.type === 'progress') {
+      expect(result.content).toEqual([]);
+    }
+  });
 });
 
 describe('parseSessionFile', () => {
@@ -602,6 +653,30 @@ describe('parseSessionFile', () => {
 
     // Should have warnings for invalid lines
     expect(result.warnings.length).toBeGreaterThan(0);
+  });
+
+  it('should preserve progress entries from the progress fixture', async () => {
+    const filePath = join(FIXTURES_DIR, 'progress-session.jsonl');
+    const result = await parseSessionFile(filePath);
+
+    expect(result.warnings).toHaveLength(0);
+    const progressMessages = result.data.filter((message) => message.type === 'progress');
+    expect(progressMessages).toHaveLength(2);
+
+    const readableProgress = progressMessages.find(
+      (message) => message.uuid === 'msg-progress-readable'
+    );
+    expect(readableProgress?.type).toBe('progress');
+    if (readableProgress?.type === 'progress') {
+      expect(readableProgress.content[0]?.text).toContain('PROGRESS_ONLY_TOKEN');
+      expect(readableProgress.parentUuid).toBe('msg-user');
+    }
+
+    const emptyProgress = progressMessages.find((message) => message.uuid === 'msg-progress-empty');
+    expect(emptyProgress?.type).toBe('progress');
+    if (emptyProgress?.type === 'progress') {
+      expect(emptyProgress.content).toEqual([]);
+    }
   });
 });
 
@@ -648,6 +723,32 @@ describe('extractMetadata', () => {
     const metadata = extractMetadata(entries);
     expect(metadata.agentId).toBe('abc1234');
   });
+
+  it('should count progress entries as displayable transcript messages', () => {
+    const entries = [
+      { type: 'summary', summary: 'Progress session', leafUuid: 'msg-003' },
+      {
+        type: 'user',
+        uuid: 'msg-001',
+        timestamp: '2026-04-01T00:00:00.000Z',
+      },
+      {
+        type: 'progress',
+        uuid: 'msg-002',
+        timestamp: '2026-04-01T00:00:01.000Z',
+      },
+      {
+        type: 'assistant',
+        uuid: 'msg-003',
+        timestamp: '2026-04-01T00:00:02.000Z',
+      },
+    ];
+
+    const metadata = extractMetadata(entries);
+    expect(metadata.messageCount).toBe(3);
+    expect(metadata.firstTimestamp).toEqual(new Date('2026-04-01T00:00:00.000Z'));
+    expect(metadata.lastTimestamp).toEqual(new Date('2026-04-01T00:00:02.000Z'));
+  });
 });
 
 describe('parseSessionMetadata', () => {
@@ -670,5 +771,14 @@ describe('parseSessionMetadata', () => {
 
     expect(result.data.agentId).toBe('abc1234');
     expect(result.data.summary).toContain('Agent');
+  });
+
+  it('should extract progress-aware metadata from the progress fixture', async () => {
+    const filePath = join(FIXTURES_DIR, 'progress-session.jsonl');
+    const result = await parseSessionMetadata(filePath);
+
+    expect(result.warnings).toHaveLength(0);
+    expect(result.data.summary).toBe('Progress repro');
+    expect(result.data.messageCount).toBe(4);
   });
 });

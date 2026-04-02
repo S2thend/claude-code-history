@@ -97,9 +97,17 @@ describe('export functions', () => {
     '{"type":"assistant","uuid":"agent-msg-002","parentUuid":"agent-msg-001","timestamp":"2025-12-03T10:00:45.000Z","sessionId":"session-003","agentId":"abc123","message":{"model":"claude-haiku-4-5-20251001","role":"assistant","content":[{"type":"text","text":"Agent response"}],"stop_reason":"end_turn"}}',
   ].join('\n');
 
+  const progressSession = [
+    '{"type":"summary","summary":"Progress export example","leafUuid":"msg-010"}',
+    '{"type":"user","uuid":"msg-009","parentUuid":null,"timestamp":"2026-04-01T00:00:00.000Z","sessionId":"session-004","cwd":"/test/project","gitBranch":"main","version":"2.0.55","message":{"role":"user","content":"Start scan"}}',
+    '{"type":"progress","uuid":"msg-010","parentUuid":"msg-009","timestamp":"2026-04-01T00:00:01.000Z","sessionId":"session-004","cwd":"/test/project","gitBranch":"main","version":"2.0.55","message":{"role":"assistant","content":[{"type":"text","text":"Tool is scanning project files..."}]}}',
+    '{"type":"assistant","uuid":"msg-011","parentUuid":"msg-010","timestamp":"2026-04-01T00:00:02.000Z","sessionId":"session-004","message":{"model":"claude-opus-4-5-20251101","role":"assistant","content":[{"type":"text","text":"Done"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}',
+  ].join('\n');
+
   const sessionUuid1 = '11111111-1111-1111-1111-111111111111';
   const sessionUuid2 = '22222222-2222-2222-2222-222222222222';
   const sessionUuid3 = '33333333-3333-3333-3333-333333333333';
+  const sessionUuid4 = '44444444-4444-4444-4444-444444444444';
 
   beforeAll(async () => {
     const projectDir = join(projectsPath, '-test-project');
@@ -108,6 +116,7 @@ describe('export functions', () => {
     await writeFile(join(projectDir, `${sessionUuid1}.jsonl`), session1);
     await writeFile(join(projectDir, `${sessionUuid2}.jsonl`), session2);
     await writeFile(join(projectDir, `${sessionUuid3}.jsonl`), sessionWithAgent);
+    await writeFile(join(projectDir, `${sessionUuid4}.jsonl`), progressSession);
     await writeFile(join(projectDir, 'agent-abc123.jsonl'), agentSession);
   });
 
@@ -144,6 +153,15 @@ describe('export functions', () => {
       // Formatted JSON has newlines
       expect(json).toContain('\n');
       expect(json).toContain('  '); // 2-space indent
+    });
+
+    it('should preserve progress messages in exported JSON', async () => {
+      const json = await exportSessionToJson(sessionUuid4, { dataPath: testDataPath });
+      const session = JSON.parse(json);
+
+      expect(
+        session.messages.some((message: { type: string }) => message.type === 'progress')
+      ).toBe(true);
     });
   });
 
@@ -229,6 +247,17 @@ describe('export functions', () => {
       expect(markdown).toContain('| Agent Sessions |');
       expect(markdown).toContain('abc123');
     });
+
+    it('should render progress messages and metadata in markdown export', async () => {
+      const markdown = await exportSessionToMarkdown(sessionUuid4, {
+        dataPath: testDataPath,
+      });
+
+      expect(markdown).toContain('## ⏳ Progress');
+      expect(markdown).toContain('Tool is scanning project files...');
+      expect(markdown).toContain('UUID');
+      expect(markdown).toContain('CWD');
+    });
   });
 
   describe('exportAllSessionsToJson', () => {
@@ -237,7 +266,7 @@ describe('export functions', () => {
       const sessions = JSON.parse(json);
 
       expect(Array.isArray(sessions)).toBe(true);
-      expect(sessions.length).toBe(3);
+      expect(sessions.length).toBe(4);
     });
 
     it('should include all sessions', async () => {
@@ -248,6 +277,7 @@ describe('export functions', () => {
       expect(ids).toContain(sessionUuid1);
       expect(ids).toContain(sessionUuid2);
       expect(ids).toContain(sessionUuid3);
+      expect(ids).toContain(sessionUuid4);
     });
   });
 
@@ -347,9 +377,9 @@ describe('export all unlimited behavior', () => {
 
     expect(sessions).toHaveLength(totalSessions);
     expect(sessions.some((session) => session.summary === finalSummary)).toBe(true);
-    expect(sessions.some((session) => session.id === createLargeExportSessionId(totalSessions - 1))).toBe(
-      true
-    );
+    expect(
+      sessions.some((session) => session.id === createLargeExportSessionId(totalSessions - 1))
+    ).toBe(true);
   });
 
   it('should export all sessions to Markdown when limit is omitted on a 94-session fixture', async () => {

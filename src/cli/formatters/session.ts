@@ -10,6 +10,7 @@ import type {
   Message,
   UserMessage,
   AssistantMessage,
+  ProgressMessage,
   AssistantContent,
   ToolUseContent,
   TextContent,
@@ -61,10 +62,7 @@ function formatDate(date: Date): string {
 /**
  * Format token usage for display
  */
-function formatTokenUsage(usage: {
-  inputTokens: number;
-  outputTokens: number;
-}): string {
+function formatTokenUsage(usage: { inputTokens: number; outputTokens: number }): string {
   const total = usage.inputTokens + usage.outputTokens;
   return `[${total.toLocaleString()} tokens]`;
 }
@@ -87,10 +85,16 @@ function formatToolResult(result: ToolResultContent): string {
   if (content.length > 500) {
     // Truncate long results but show more than before
     const truncated = content.slice(0, 497) + '...';
-    const indented = truncated.split('\n').map(line => '    ' + line).join('\n');
+    const indented = truncated
+      .split('\n')
+      .map((line) => '    ' + line)
+      .join('\n');
     lines.push(indented);
   } else {
-    const indented = content.split('\n').map(line => '    ' + line).join('\n');
+    const indented = content
+      .split('\n')
+      .map((line) => '    ' + line)
+      .join('\n');
     lines.push(indented);
   }
 
@@ -100,21 +104,20 @@ function formatToolResult(result: ToolResultContent): string {
 /**
  * Format tool use content with its result (if available)
  */
-function formatToolUseWithResult(
-  content: ToolUseContent,
-  toolResults: ToolResultMap
-): string {
+function formatToolUseWithResult(content: ToolUseContent, toolResults: ToolResultMap): string {
   const lines: string[] = [];
 
   // Format the tool call
   const inputStr = JSON.stringify(content.input, null, 2);
-  const truncatedInput =
-    inputStr.length > 300 ? inputStr.slice(0, 297) + '...' : inputStr;
+  const truncatedInput = inputStr.length > 300 ? inputStr.slice(0, 297) + '...' : inputStr;
 
   lines.push(`[Tool: ${content.name}]`);
 
   // Add input parameters with indentation
-  const indentedInput = truncatedInput.split('\n').map(line => '  ' + line).join('\n');
+  const indentedInput = truncatedInput
+    .split('\n')
+    .map((line) => '  ' + line)
+    .join('\n');
   lines.push(indentedInput);
 
   // Add the result if we have it
@@ -130,10 +133,7 @@ function formatToolUseWithResult(
 /**
  * Format a single content item from assistant message
  */
-function formatContentItem(
-  item: AssistantContent,
-  toolResults: ToolResultMap
-): string {
+function formatContentItem(item: AssistantContent, toolResults: ToolResultMap): string {
   if (item.type === 'text') {
     return (item as TextContent).text;
   }
@@ -144,8 +144,7 @@ function formatContentItem(
 
   if (item.type === 'thinking') {
     const thinking = (item as ThinkingContent).thinking;
-    const preview =
-      thinking.length > 100 ? thinking.slice(0, 97) + '...' : thinking;
+    const preview = thinking.length > 100 ? thinking.slice(0, 97) + '...' : thinking;
     return `[Thinking] ${preview}`;
   }
 
@@ -164,11 +163,7 @@ function isToolResultMessage(msg: UserMessage): boolean {
   }
   // Check if all content items are tool results
   return msg.content.every(
-    (item) =>
-      item &&
-      typeof item === 'object' &&
-      'type' in item &&
-      item.type === 'tool_result'
+    (item) => item && typeof item === 'object' && 'type' in item && item.type === 'tool_result'
   );
 }
 
@@ -188,9 +183,7 @@ function formatUserContent(content: string | ToolResultContent[]): string {
         if (item.type === 'tool_result') {
           // Fallback formatting if we somehow get here
           const preview =
-            item.content.length > 200
-              ? item.content.slice(0, 197) + '...'
-              : item.content;
+            item.content.length > 200 ? item.content.slice(0, 197) + '...' : item.content;
           return `[Tool Result] ${preview}`;
         }
         return JSON.stringify(item);
@@ -213,20 +206,36 @@ function formatUserMessage(msg: UserMessage): string {
 /**
  * Format an assistant message for display
  */
-function formatAssistantMessage(
-  msg: AssistantMessage,
-  toolResults: ToolResultMap
-): string {
+function formatAssistantMessage(msg: AssistantMessage, toolResults: ToolResultMap): string {
   const time = formatTime(msg.timestamp);
   const model = msg.model || 'assistant';
   const tokens = formatTokenUsage(msg.usage);
 
-  const contentParts = msg.content.map((item) =>
-    formatContentItem(item, toolResults)
-  );
+  const contentParts = msg.content.map((item) => formatContentItem(item, toolResults));
   const content = contentParts.join('\n\n');
 
   return `[${time}] ASSISTANT (${model}) ${tokens}\n${content}`;
+}
+
+/**
+ * Format a progress message for display.
+ */
+function formatProgressMessage(msg: ProgressMessage): string {
+  const time = formatTime(msg.timestamp);
+  const content =
+    msg.content.length > 0
+      ? msg.content.map((block) => block.text).join('\n\n')
+      : '[No human-readable progress text captured]';
+
+  const metadata = [
+    `  UUID: ${msg.uuid}`,
+    `  Parent: ${msg.parentUuid ?? 'null'}`,
+    `  CWD: ${msg.cwd || '(unknown)'}`,
+    `  Branch: ${msg.gitBranch ?? 'null'}`,
+    `  Sidechain: ${String(msg.isSidechain)}`,
+  ].join('\n');
+
+  return `[${time}] PROGRESS\n${content}\n\n${metadata}`;
 }
 
 /**
@@ -261,10 +270,7 @@ function separator(): string {
 /**
  * Format session header
  */
-function formatSessionHeader(
-  session: Session,
-  options?: SessionFormatOptions
-): string {
+function formatSessionHeader(session: Session, options?: SessionFormatOptions): string {
   const lines = [
     `Session: ${session.id}`,
     `Project: ${session.projectPath}`,
@@ -300,10 +306,7 @@ function formatSessionHeader(
  * @param options - Optional format options for filtered output
  * @returns Formatted session string
  */
-export function formatSession(
-  session: Session,
-  options?: SessionFormatOptions
-): string {
+export function formatSession(session: Session, options?: SessionFormatOptions): string {
   const parts: string[] = [];
 
   // Use filtered messages if provided, otherwise use session messages
@@ -329,7 +332,7 @@ export function formatSession(
   // Messages
   for (const msg of messagesToFormat) {
     // Skip summary and file-history-snapshot messages
-    if (msg.type !== 'user' && msg.type !== 'assistant') {
+    if (msg.type !== 'user' && msg.type !== 'assistant' && msg.type !== 'progress') {
       continue;
     }
 
@@ -341,8 +344,10 @@ export function formatSession(
     let formatted: string;
     if (msg.type === 'user') {
       formatted = formatUserMessage(msg as UserMessage);
-    } else {
+    } else if (msg.type === 'assistant') {
       formatted = formatAssistantMessage(msg as AssistantMessage, toolResults);
+    } else {
+      formatted = formatProgressMessage(msg as ProgressMessage);
     }
 
     parts.push('');

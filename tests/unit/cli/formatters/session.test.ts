@@ -3,8 +3,18 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { formatSession, formatSessionForJson, formatTokenSummary } from '../../../../src/cli/formatters/session.js';
-import type { Session, UserMessage, AssistantMessage, AggregateTokenStats } from '../../../../src/lib/index.js';
+import {
+  formatSession,
+  formatSessionForJson,
+  formatTokenSummary,
+} from '../../../../src/cli/formatters/session.js';
+import type {
+  Session,
+  UserMessage,
+  AssistantMessage,
+  ProgressMessage,
+  AggregateTokenStats,
+} from '../../../../src/lib/index.js';
 
 /**
  * Create a minimal test session
@@ -137,6 +147,71 @@ describe('formatSession', () => {
 
     // Should have separator character (─)
     expect(output).toContain('─'.repeat(80));
+  });
+
+  it('should render progress messages distinctly', () => {
+    const session = createTestSession({
+      messageCount: 3,
+      messages: [
+        {
+          type: 'user',
+          uuid: 'msg-1',
+          parentUuid: null,
+          timestamp: new Date('2024-01-15T10:30:00Z'),
+          content: 'Start scanning',
+          cwd: '/Users/dev/test-project',
+        } as UserMessage,
+        {
+          type: 'progress',
+          uuid: 'msg-2',
+          parentUuid: 'msg-1',
+          timestamp: new Date('2024-01-15T10:30:03Z'),
+          content: [{ type: 'text', text: 'Scanning src/lib/types.ts' }],
+          cwd: '/Users/dev/test-project',
+          gitBranch: 'main',
+          isSidechain: false,
+        } as ProgressMessage,
+        {
+          type: 'assistant',
+          uuid: 'msg-3',
+          parentUuid: 'msg-2',
+          timestamp: new Date('2024-01-15T10:30:05Z'),
+          model: 'claude-3-sonnet',
+          content: [{ type: 'text', text: 'Scan complete.' }],
+          stopReason: 'end_turn',
+          usage: { inputTokens: 50, outputTokens: 100 },
+        } as AssistantMessage,
+      ],
+    });
+
+    const output = formatSession(session);
+
+    expect(output).toContain('PROGRESS');
+    expect(output).toContain('Scanning src/lib/types.ts');
+    expect(output).toContain('CWD: /Users/dev/test-project');
+  });
+
+  it('should show a placeholder for progress messages without readable text', () => {
+    const session = createTestSession({
+      messageCount: 1,
+      messages: [
+        {
+          type: 'progress',
+          uuid: 'msg-progress',
+          parentUuid: null,
+          timestamp: new Date('2024-01-15T10:30:03Z'),
+          content: [],
+          cwd: '/Users/dev/test-project',
+          gitBranch: 'main',
+          isSidechain: false,
+        } as ProgressMessage,
+      ],
+    });
+
+    const output = formatSession(session);
+
+    expect(output).toContain('PROGRESS');
+    expect(output).toContain('No human-readable progress text captured');
   });
 
   it('should handle empty messages array', () => {

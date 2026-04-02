@@ -51,18 +51,29 @@ function createTestSession(
     sessionId: sessionId,
     cwd: projectPath,
     version: '2.0.0',
-    message: msg.type === 'user'
-      ? {
-          role: 'user',
-          content: msg.content,
-        }
-      : {
-          role: 'assistant',
-          model: 'claude-3-sonnet',
-          content: [{ type: 'text', text: msg.content }],
-          stop_reason: 'end_turn',
-          usage: { input_tokens: 100, output_tokens: 200, cache_creation_input_tokens: 500, cache_read_input_tokens: 5000 },
-        },
+    message:
+      msg.type === 'user'
+        ? {
+            role: 'user',
+            content: msg.content,
+          }
+        : msg.type === 'progress'
+          ? {
+              role: 'assistant',
+              content: [{ type: 'text', text: msg.content }],
+            }
+          : {
+              role: 'assistant',
+              model: 'claude-3-sonnet',
+              content: [{ type: 'text', text: msg.content }],
+              stop_reason: 'end_turn',
+              usage: {
+                input_tokens: 100,
+                output_tokens: 200,
+                cache_creation_input_tokens: 500,
+                cache_read_input_tokens: 5000,
+              },
+            },
   }));
 
   // Add summary entry
@@ -85,7 +96,10 @@ function createTestSession(
 /**
  * Execute CLI command and return stdout/stderr
  */
-function runCli(args: string, dataPath?: string): { stdout: string; stderr: string; exitCode: number } {
+function runCli(
+  args: string,
+  dataPath?: string
+): { stdout: string; stderr: string; exitCode: number } {
   const dataPathArg = dataPath ? `--data-path "${dataPath}"` : `--data-path "${TEST_DATA_DIR}"`;
   try {
     const stdout = execSync(`node ${CLI_PATH} ${dataPathArg} ${args}`, {
@@ -182,9 +196,12 @@ describe('cch view', () => {
     });
 
     it('should display session metadata header', () => {
-      createTestSession('/Users/dev/myproject', 'session-xyz', [
-        { type: 'user', content: 'Test' },
-      ], { summary: 'Test session summary' });
+      createTestSession(
+        '/Users/dev/myproject',
+        'session-xyz',
+        [{ type: 'user', content: 'Test' }],
+        { summary: 'Test session summary' }
+      );
 
       const { stdout, exitCode } = runCli('view 0 --full');
 
@@ -262,9 +279,12 @@ describe('cch view', () => {
     });
 
     it('should include session metadata in JSON output', () => {
-      createTestSession('/Users/dev/myproject', 'session-json-meta', [
-        { type: 'user', content: 'Test' },
-      ], { summary: 'JSON test summary' });
+      createTestSession(
+        '/Users/dev/myproject',
+        'session-json-meta',
+        [{ type: 'user', content: 'Test' }],
+        { summary: 'JSON test summary' }
+      );
 
       const { stdout } = runCli('view 0 --json');
       const json = JSON.parse(stdout);
@@ -301,13 +321,73 @@ describe('cch view', () => {
       expect(json.data.messageCount).toBeDefined();
       expect(typeof json.data.messageCount).toBe('number');
     });
+
+    it('should preserve progress messages in JSON output', () => {
+      createTestSession('/Users/dev/project1', 'progress-json', [
+        { type: 'user', content: 'Start scan' },
+        { type: 'progress', content: 'Tool is scanning project files...' },
+        { type: 'assistant', content: 'Done' },
+      ]);
+
+      const { stdout, exitCode } = runCli('view 0 --json');
+      const json = JSON.parse(stdout);
+
+      expect(exitCode).toBe(0);
+      expect(
+        json.data.messages.some((message: { type: string }) => message.type === 'progress')
+      ).toBe(true);
+    });
+  });
+
+  describe('progress rendering and filtering', () => {
+    it('should show progress messages in the transcript order', () => {
+      createTestSession('/Users/dev/project1', 'progress-view', [
+        { type: 'user', content: 'Start scan' },
+        { type: 'progress', content: 'Tool is scanning project files...' },
+        { type: 'assistant', content: 'Done' },
+      ]);
+
+      const { stdout, exitCode } = runCli('view 0 --full');
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('PROGRESS');
+      expect(stdout).toContain('Tool is scanning project files...');
+      expect(stdout.indexOf('USER')).toBeLessThan(stdout.indexOf('PROGRESS'));
+      expect(stdout.indexOf('PROGRESS')).toBeLessThan(stdout.indexOf('ASSISTANT'));
+    });
+
+    it('should support the dedicated --only progress filter', () => {
+      createTestSession('/Users/dev/project1', 'progress-only', [
+        { type: 'user', content: 'Start scan' },
+        { type: 'progress', content: 'Tool is scanning project files...' },
+        { type: 'assistant', content: 'Done' },
+      ]);
+
+      const { stdout, exitCode } = runCli('view 0 --only progress --full');
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('PROGRESS');
+      expect(stdout).toContain('Tool is scanning project files...');
+      expect(stdout).not.toContain('ASSISTANT');
+      expect(stdout).not.toContain('USER');
+    });
+
+    it('should return an informative empty state when no progress messages exist', () => {
+      createTestSession('/Users/dev/project1', 'no-progress', [
+        { type: 'user', content: 'Start scan' },
+        { type: 'assistant', content: 'Done' },
+      ]);
+
+      const { stdout, exitCode } = runCli('view 0 --only progress --full');
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('No messages match filter: progress');
+    });
   });
 
   describe('error handling for invalid session (T025)', () => {
     it('should return error for non-existent index', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'Test' },
-      ]);
+      createTestSession('/Users/dev/project1', 'session-1', [{ type: 'user', content: 'Test' }]);
 
       const { exitCode, stdout, stderr } = runCli('view 999 --json');
 
@@ -318,9 +398,7 @@ describe('cch view', () => {
     });
 
     it('should return error for non-existent UUID', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'Test' },
-      ]);
+      createTestSession('/Users/dev/project1', 'session-1', [{ type: 'user', content: 'Test' }]);
 
       const { exitCode, stdout, stderr } = runCli('view nonexistent-uuid-12345 --json');
 
@@ -330,9 +408,7 @@ describe('cch view', () => {
     });
 
     it('should provide helpful suggestion when session not found', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'Test' },
-      ]);
+      createTestSession('/Users/dev/project1', 'session-1', [{ type: 'user', content: 'Test' }]);
 
       const { stdout, stderr } = runCli('view 999');
 
@@ -342,9 +418,7 @@ describe('cch view', () => {
     });
 
     it('should return JSON error format with --json flag', () => {
-      createTestSession('/Users/dev/project1', 'session-1', [
-        { type: 'user', content: 'Test' },
-      ]);
+      createTestSession('/Users/dev/project1', 'session-1', [{ type: 'user', content: 'Test' }]);
 
       const { stdout, exitCode } = runCli('view 999 --json');
 
