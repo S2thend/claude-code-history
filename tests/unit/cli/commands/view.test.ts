@@ -84,6 +84,16 @@ describe('view command', () => {
     vi.mocked(filterMessages).mockReset();
     vi.mocked(computeTokenStats).mockReset();
     vi.mocked(outputWithPager).mockReset();
+
+    vi.mocked(filterMessages).mockImplementation((messages) => messages as typeof mockSession.messages);
+    vi.mocked(computeTokenStats).mockReturnValue({
+      inputTokens: 50,
+      outputTokens: 25,
+      totalTokens: 75,
+      cacheCreationInputTokens: 0,
+      cacheReadInputTokens: 0,
+      messageCount: 2,
+    });
   });
 
   afterEach(() => {

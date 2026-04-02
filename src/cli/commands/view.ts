@@ -93,7 +93,8 @@ async function executeView(sessionArg: string, options: ViewOptions): Promise<vo
     }
 
     const session = await getSession(sessionRef, libConfig);
-    const totalMessageCount = session.messageCount;
+    const defaultMessages = filterMessages(session.messages);
+    const totalMessageCount = defaultMessages.length;
 
     // Compute token statistics for the session
     const tokenStats = computeTokenStats(session.messages);
@@ -101,7 +102,7 @@ async function executeView(sessionArg: string, options: ViewOptions): Promise<vo
     // Apply filter if specified
     const filteredMessages = filterTypes
       ? filterMessages(session.messages, { only: filterTypes })
-      : session.messages;
+      : defaultMessages;
 
     // Check for empty results with filter
     if (filterTypes && filteredMessages.length === 0) {

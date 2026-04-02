@@ -278,8 +278,10 @@ function formatSessionHeader(session: Session, options?: SessionFormatOptions): 
   ];
 
   // Show filtered message count if filter is applied
-  if (options) {
+  if (options?.filter?.length) {
     lines.push(`Messages: ${options.messages.length} (filtered from ${options.totalMessageCount})`);
+  } else if (options) {
+    lines.push(`Messages: ${options.messages.length}`);
   } else {
     lines.push(`Messages: ${session.messageCount}`);
   }

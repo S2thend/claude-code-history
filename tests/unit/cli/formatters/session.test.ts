@@ -85,6 +85,18 @@ describe('formatSession', () => {
     expect(output).toContain('5');
   });
 
+  it('should show the displayable message count without filtered wording when no filter is applied', () => {
+    const session = createTestSession({ messageCount: 2 });
+    const output = formatSession(session, {
+      messages: session.messages,
+      filter: [],
+      totalMessageCount: 2,
+    });
+
+    expect(output).toContain('Messages: 2');
+    expect(output).not.toContain('filtered from');
+  });
+
   it('should include summary when present', () => {
     const session = createTestSession({ summary: 'Discussion about TypeScript generics' });
     const output = formatSession(session);
