@@ -100,7 +100,7 @@ interface SessionFormatOptions {
 
 **Validation Rules**:
 - `full: true` disables all formatter-level abbreviation for tool inputs, tool results, thinking text, and fallback tool-result previews.
-- `full: false` or omitted may abbreviate long human-readable display fields, but only in formatter output strings.
+- `full: false` or omitted may abbreviate long human-readable display fields, but only in formatter output strings, only with the dedicated `[...truncated for display]` marker, and only at the preserved default caps of 300 characters for tool inputs, 500 for tool results, 100 for thinking text, and 200 for fallback tool-result previews.
 - `formatSessionForJson()` remains full-fidelity and does not use `full` to remove or shorten payload data.
 
 ## Type Relationships
@@ -129,7 +129,7 @@ formatSession
 2. Transform raw entries into full-fidelity `Message` objects.
 3. Return `Session` objects from `getSession()`/`getAgentSession()` without shortening payload fields.
 4. Render human-readable CLI output:
-   - default mode may abbreviate long fields,
+   - default mode may abbreviate long fields with `[...truncated for display]` at the existing 300/500/100/200 field caps,
    - full mode displays all fields untruncated.
 5. Emit JSON output/export payloads directly from full-fidelity session data.
 
@@ -137,7 +137,7 @@ formatSession
 
 1. Library session retrieval returns all characters for long user text, assistant text, tool inputs, tool results, and thinking blocks.
 2. Parser warnings return full invalid-line content.
-3. Default human-readable `cch view` may abbreviate long formatter output and must make abbreviation visible.
+3. Default human-readable `cch view` may abbreviate long formatter output and must make abbreviation visible with `[...truncated for display]` while preserving source-authored `...` text distinctly.
 4. `cch view --full` displays complete human-readable content and still bypasses the pager.
 5. JSON session output and exports remain complete regardless of `--full`.
-6. Switching between default and full display modes never changes the underlying session data.
+6. Switching between default and full display modes never changes the underlying session data, and post-view `getSession()` retrieval plus JSON/Markdown export comparisons still return the original full payloads.

@@ -33,8 +33,8 @@ cch view 0
 
 **Behavioral Contract**:
 - Session headers, metadata, and message ordering remain unchanged.
-- Long tool inputs, long tool results, thinking text, and fallback tool-result previews may be abbreviated for readability.
-- Any abbreviated field must include a visible marker that indicates omitted display content.
+- Long tool inputs, long tool results, thinking text, and fallback tool-result previews may be abbreviated for readability using the preserved default caps of 300, 500, 100, and 200 characters respectively.
+- Any abbreviated field must include the dedicated `[...truncated for display]` marker so display-added omission is distinguishable from source-authored `...` text.
 - Abbreviation is display-only and must not mutate session data returned by the library.
 
 ### Human-Readable Full Mode
@@ -77,7 +77,7 @@ export function formatSession(
 
 **Behavioral Contract**:
 - `full: true` disables all formatter-side abbreviation branches.
-- `full: false` or omitted preserves concise default rendering for long fields.
+- `full: false` or omitted preserves concise default rendering for long fields using the existing 300/500/100/200 caps for tool inputs, tool results, thinking blocks, and fallback tool-result previews.
 - `formatSessionForJson(...)` remains a direct data formatter and does not add omission markers.
 
 ## Examples
@@ -87,12 +87,12 @@ export function formatSession(
 ```text
 [Tool: Edit]
   {
-    "old_string": "very long text...",
-    "new_string": "very long text..."
+    "old_string": "very long text[...truncated for display]",
+    "new_string": "very long text[...truncated for display]"
   }
 
   → Result:
-    very long command output...
+    very long command output[...truncated for display]
 ```
 
 ### Full display
@@ -111,6 +111,7 @@ export function formatSession(
 ## Test Obligations
 
 - Unit tests must verify `formatSession(..., { full: true })` renders long tool inputs/results/thinking text without omission markers.
-- Unit tests must verify default `formatSession(...)` still abbreviates long fields visibly.
+- Unit tests must verify default `formatSession(...)` still abbreviates long fields with `[...truncated for display]` and keeps source-authored `...` text distinguishable.
 - CLI integration tests must verify `cch view --full` passes full mode into the formatter and preserves complete human-readable output.
 - CLI integration tests must verify default `cch view` and `cch view --json` continue to work with existing session identifiers and filters.
+- CLI integration tests must verify running default/full `cch view` does not mutate later `getSession()` retrieval or JSON/Markdown exports for the same session.

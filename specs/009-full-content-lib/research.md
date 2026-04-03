@@ -37,12 +37,12 @@ This document records implementation decisions for enforcing a strict full-fidel
 
 ### 3. Default Abbreviation Strategy
 
-**Decision**: Keep default human-readable `cch view` concise by retaining formatter-local length caps for long tool inputs, tool results, thinking text, and fallback tool-result previews, but isolate those caps behind one formatter helper that can be disabled by `full`.
+**Decision**: Keep default human-readable `cch view` concise by retaining the current formatter-local length caps of 300 characters for tool inputs, 500 for tool results, 100 for thinking text, and 200 for fallback tool-result previews, but isolate those caps behind one formatter helper that can be disabled by `full` and emits `[...truncated for display]` instead of plain `...`.
 
 **Rationale**:
 - Preserving default readability minimizes user-facing regressions for routine session scans.
 - Centralizing formatter truncation makes it easy to prove no shortening exists in the library layer and to disable all abbreviation consistently in full mode.
-- A helper-based design avoids repeated hardcoded `slice(...) + "..."` branches and simplifies test coverage.
+- A helper-based design avoids repeated hardcoded `slice(...) + "..."` branches, uses a marker that is distinguishable from source-authored `...` text, and simplifies test coverage.
 
 **Alternatives considered**:
 - Keep each truncation branch hardcoded in-place: Rejected because it spreads presentation policy across formatter internals and makes `full` bypass coverage error-prone.
@@ -63,11 +63,12 @@ This document records implementation decisions for enforcing a strict full-fidel
 
 ### 5. Test and Fixture Strategy
 
-**Decision**: Add regression tests that prove library retrieval and parser warnings preserve long content, default formatter output abbreviates visibly, and `cch view --full` disables formatter truncation end-to-end.
+**Decision**: Add regression tests that prove library retrieval and parser warnings preserve long content, default formatter output abbreviates visibly, `cch view --full` disables formatter truncation end-to-end, and running default/full `cch view` does not change later programmatic retrieval or exports.
 
 **Rationale**:
 - Existing formatter/parser tests currently assert truncation, so they need to be split into default-mode and full-mode expectations.
 - Integration tests are required to prove the `--full` flag reaches the formatter and does not affect JSON/library payload fidelity.
+- A post-view invariance regression is needed to prove display-only abbreviation does not mutate later `getSession()` retrieval or exported payloads.
 - Long synthetic payloads over 1,000 characters are enough to exercise the acceptance criteria without introducing brittle external fixtures.
 
 **Alternatives considered**:
@@ -91,13 +92,13 @@ This document records implementation decisions for enforcing a strict full-fidel
    - Replace parser warning truncation expectations with full-content assertions.
 
 5. `tests/unit/cli/formatters/session.test.ts`
-   - Cover default concise output and full-mode untruncated output for tool inputs, tool results, thinking blocks, and fallback tool-result previews.
+   - Cover default concise output with `[...truncated for display]` and full-mode untruncated output for tool inputs, tool results, thinking blocks, and fallback tool-result previews.
 
 6. `tests/integration/get-session.test.ts`
    - Verify long message/tool payloads returned by `getSession()` are complete.
 
 7. `tests/integration/cli/view.test.ts`
-   - Verify default `cch view` abbreviates visibly and `cch view --full` shows complete long content.
+   - Verify default `cch view` abbreviates visibly, `cch view --full` shows complete long content, and post-view retrieval/export results remain unchanged.
 
 ## Performance Considerations
 
@@ -108,4 +109,4 @@ This document records implementation decisions for enforcing a strict full-fidel
 ## Resolved Uncertainty
 
 - The only library-side truncation found during planning is parse-warning content in `parseJsonLine()`, and that truncation is explicitly removed by this design.
-- Formatter truncation is not removed entirely; it becomes conditional on formatter options and defaults to concise human-readable output unless `--full/-f` is enabled.
+- Formatter truncation is not removed entirely; it becomes conditional on formatter options, uses `[...truncated for display]` in default mode, and defaults to concise human-readable output unless `--full/-f` is enabled.

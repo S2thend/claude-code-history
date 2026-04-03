@@ -10,7 +10,7 @@ This guide maps the display/data-fidelity boundary fix onto the current codebase
 ## What We’re Building
 
 - Library and parser functions return complete message, tool, and warning content with no truncation.
-- Default human-readable `cch view` may still abbreviate long display fields for readability.
+- Default human-readable `cch view` may still abbreviate long display fields for readability using the preserved `300/500/100/200` field caps, but must use `[...truncated for display]` instead of plain `...`.
 - `cch view --full` disables formatter truncation and keeps the existing no-pager behavior.
 - JSON output and exports remain full-fidelity regardless of `--full`.
 
@@ -37,7 +37,7 @@ This guide maps the display/data-fidelity boundary fix onto the current codebase
 ### Step 2: Add Formatter-Level Full Mode
 
 - Extend `SessionFormatOptions` with `full?: boolean`.
-- Introduce a formatter helper that returns the original string in full mode and applies default abbreviation only when full mode is off.
+- Introduce a formatter helper that returns the original string in full mode and applies `[...truncated for display]` only when full mode is off, preserving the current 300-character tool-input cap, 500-character tool-result cap, 100-character thinking cap, and 200-character fallback-preview cap.
 - Apply that helper to tool input rendering, tool result rendering, thinking previews, and fallback tool-result previews.
 
 ### Step 3: Wire `--full/-f` Into `cch view`
@@ -49,12 +49,13 @@ This guide maps the display/data-fidelity boundary fix onto the current codebase
 ### Step 4: Lock Behavior With Tests
 
 - Add formatter unit tests for:
-  - default mode abbreviates long tool input/output/thinking content with a visible marker,
+  - default mode abbreviates long tool input/output/thinking content with `[...truncated for display]`,
   - full mode displays the complete same values with no omission marker.
 - Add CLI integration tests for:
   - `cch view <session>` default concise rendering,
   - `cch view <session> --full` complete rendering,
-  - `cch view <session> --json` full payloads without requiring `--full`.
+  - `cch view <session> --json` full payloads without requiring `--full`,
+  - post-view `getSession()` retrieval and JSON/Markdown exports returning unchanged full payloads after both default and full human-readable viewing.
 
 ## Example Test Payloads
 
@@ -87,6 +88,6 @@ node dist/cli/index.js view 0 --json
 - No `slice(...)+ "..."`-style data shortening remains in `src/lib/`.
 - `getSession()` returns complete long message/tool payloads for programmatic callers.
 - Parser warnings expose full invalid-line text in `ParseWarning.content`.
-- Default `cch view` remains concise and visibly marks display-only omission.
+- Default `cch view` remains concise and visibly marks display-only omission with `[...truncated for display]`.
 - `cch view --full` shows all session content with no formatter truncation and no pager.
 - `cch view --json` remains complete without needing `--full`.

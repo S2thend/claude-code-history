@@ -16,8 +16,8 @@ Guarantee that library/session retrieval returns complete message and tool paylo
 **Target Platform**: Node.js 20+ on macOS, Linux, and Windows  
 **Project Type**: Single TypeScript project with library and CLI layers  
 **Performance Goals**: Preserve complete content for fields longer than 1,000 characters in library retrieval and full-detail CLI output, while keeping default `cch view` readable through formatter-only abbreviation  
-**Constraints**: No truncation logic in `src/lib/`; parser warnings must preserve full invalid-line content; no new runtime dependencies; `--json` and exports must remain full-fidelity regardless of `--full`; default human-readable `cch view` may still abbreviate display output only; `--full/-f` must keep its current no-pager behavior  
-**Scale/Scope**: One data-fidelity and display-boundary refactor spanning parser warning handling, session formatter options, `cch view` option propagation, and regression tests for long user text, tool inputs, tool results, thinking blocks, and parse warnings
+**Constraints**: No truncation logic in `src/lib/`; parser warnings must preserve full invalid-line content; no new runtime dependencies; `--json` and exports must remain full-fidelity regardless of `--full`; default human-readable `cch view` may still abbreviate display output only using the existing 300/500/100/200 caps for tool inputs, tool results, thinking blocks, and fallback tool-result previews; `--full/-f` must keep its current no-pager behavior
+**Scale/Scope**: One data-fidelity and display-boundary refactor spanning parser warning handling, session formatter options, `cch view` option propagation, and regression tests for long user text, tool inputs, tool results, thinking blocks, parse warnings, and post-view retrieval/export invariance
 
 ## Constitution Check
 
