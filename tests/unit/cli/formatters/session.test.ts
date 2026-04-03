@@ -51,6 +51,97 @@ function createTestSession(overrides?: Partial<Session>): Session {
   };
 }
 
+const LONG_FORMATTER_TEXT = `assistant text ${'t'.repeat(1200)}...source`;
+const LONG_FORMATTER_THINKING = `thinking ${'h'.repeat(1200)}`;
+const LONG_FORMATTER_TOOL_RESULT = ['result-line-1', `result ${'r'.repeat(1200)}`, 'result-line-3'].join(
+  '\n'
+);
+const LONG_FORMATTER_TOOL_INPUT = {
+  file_path: '/test/large.txt',
+  old_string: `old-${'o'.repeat(1200)}`,
+  new_string: `new-${'n'.repeat(1200)}...source`,
+};
+const TRUNCATION_MARKER = '[...truncated for display]';
+
+function expectDisplayPreview(content: string, limit: number): string {
+  return content.length > limit
+    ? content.slice(0, limit - TRUNCATION_MARKER.length) + TRUNCATION_MARKER
+    : content;
+}
+
+function createLongToolSession(): Session {
+  return createTestSession({
+    messageCount: 4,
+    messages: [
+      {
+        type: 'user',
+        uuid: 'msg-long-1',
+        parentUuid: null,
+        timestamp: new Date('2024-01-15T10:30:00Z'),
+        content: 'User prompt with source ellipsis ...',
+        cwd: '/Users/dev/test-project',
+      } as UserMessage,
+      {
+        type: 'assistant',
+        uuid: 'msg-long-2',
+        parentUuid: 'msg-long-1',
+        timestamp: new Date('2024-01-15T10:30:05Z'),
+        model: 'claude-3-sonnet',
+        content: [
+          {
+            type: 'thinking',
+            thinking: LONG_FORMATTER_THINKING,
+          },
+          {
+            type: 'text',
+            text: LONG_FORMATTER_TEXT,
+          },
+          {
+            type: 'tool_use',
+            id: 'tool-long-1',
+            name: 'Edit',
+            input: LONG_FORMATTER_TOOL_INPUT,
+          },
+        ],
+        stopReason: 'tool_use',
+        usage: { inputTokens: 50, outputTokens: 100 },
+      } as AssistantMessage,
+      {
+        type: 'user',
+        uuid: 'msg-long-3',
+        parentUuid: 'msg-long-2',
+        timestamp: new Date('2024-01-15T10:30:10Z'),
+        cwd: '/test',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: 'tool-long-1',
+            content: LONG_FORMATTER_TOOL_RESULT,
+          },
+        ],
+      } as unknown as UserMessage,
+      {
+        type: 'user',
+        uuid: 'msg-long-4',
+        parentUuid: 'msg-long-3',
+        timestamp: new Date('2024-01-15T10:30:15Z'),
+        cwd: '/test',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: 'missing-tool-result',
+            content: LONG_FORMATTER_TOOL_RESULT,
+          },
+          {
+            type: 'unexpected',
+            value: 'fallback-trigger',
+          },
+        ],
+      } as unknown as UserMessage,
+    ],
+  });
+}
+
 describe('formatSession', () => {
   it('should include session header with ID', () => {
     const session = createTestSession();
@@ -649,6 +740,59 @@ describe('formatSession', () => {
 
       expect(output).toContain('No messages match filter');
       expect(output).toContain('thinking');
+    });
+  });
+
+  describe('full mode formatting', () => {
+    it('should render complete tool input, tool result, thinking, and fallback tool-result content when full mode is enabled', () => {
+      const session = createLongToolSession();
+      const output = formatSession(session, {
+        messages: session.messages,
+        filter: [],
+        totalMessageCount: session.messageCount,
+        full: true,
+      });
+
+      expect(output).toContain(LONG_FORMATTER_THINKING);
+      expect(output).toContain(LONG_FORMATTER_TEXT);
+      expect(output).toContain(`"file_path": "${LONG_FORMATTER_TOOL_INPUT.file_path}"`);
+      expect(output).toContain(`"old_string": "${LONG_FORMATTER_TOOL_INPUT.old_string}"`);
+      expect(output).toContain(`"new_string": "${LONG_FORMATTER_TOOL_INPUT.new_string}"`);
+      expect(output).toContain(LONG_FORMATTER_TOOL_RESULT);
+      expect(output).toContain(`[Tool Result] ${LONG_FORMATTER_TOOL_RESULT}`);
+      expect(output).not.toContain('[...truncated for display]');
+      expect(output).not.toContain('result '.repeat(71) + '...');
+    });
+  });
+
+  describe('default concise formatting', () => {
+    it('should abbreviate long tool, thinking, and fallback result content with the dedicated marker and preserved caps', () => {
+      const session = createLongToolSession();
+      const output = formatSession(session, {
+        messages: session.messages,
+        filter: [],
+        totalMessageCount: session.messageCount,
+      });
+
+      expect(output).toContain('User prompt with source ellipsis ...');
+      expect(output).toContain(expectDisplayPreview(LONG_FORMATTER_THINKING, 100));
+      const indentedInputPreview = expectDisplayPreview(
+        JSON.stringify(LONG_FORMATTER_TOOL_INPUT, null, 2),
+        300
+      )
+        .split('\n')
+        .map((line) => '  ' + line)
+        .join('\n');
+      expect(output).toContain(indentedInputPreview);
+      const indentedResultPreview = expectDisplayPreview(LONG_FORMATTER_TOOL_RESULT, 500)
+        .split('\n')
+        .map((line) => '    ' + line)
+        .join('\n');
+      expect(output).toContain(indentedResultPreview);
+      expect(output).toContain(
+        `[Tool Result] ${expectDisplayPreview(LONG_FORMATTER_TOOL_RESULT, 200)}`
+      );
+      expect(output).not.toContain(`${LONG_FORMATTER_TOOL_RESULT.slice(0, 197)}...`);
     });
   });
 });

@@ -6,6 +6,8 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { execSync } from 'child_process';
 import { resolve, join } from 'path';
 import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
+import { exportSessionToJson, exportSessionToMarkdown } from '../../../src/lib/export.js';
+import { getSession } from '../../../src/lib/session.js';
 
 const CLI_PATH = resolve(process.cwd(), 'dist/cli/index.js');
 const TEST_DATA_DIR = resolve(process.cwd(), 'tests/fixtures/cli-view-test-data');
@@ -16,6 +18,17 @@ let testSessionIds: string[] = [];
 
 // Counter for generating unique UUIDs
 let uuidCounter = 0;
+
+const LONG_VIEW_TOOL_INPUT = {
+  file_path: '/Users/dev/project-long/example.txt',
+  old_string: `old-value ${'a'.repeat(1200)}...source`,
+  new_string: `new-value ${'b'.repeat(1200)} 终`,
+};
+const LONG_VIEW_TOOL_RESULT = ['result-line-1', `tool-output ${'c'.repeat(1200)}`, 'result-line-3'].join(
+  '\n'
+);
+const LONG_VIEW_THINKING = `thinking ${'d'.repeat(1200)}`;
+const LONG_VIEW_TEXT = `assistant-text ${'e'.repeat(1200)}`;
 
 /**
  * Generate a valid UUID for testing
@@ -185,6 +198,85 @@ function createNestedAgentSession(
     join(subagentsDir, `agent-${agentId}.jsonl`),
     entries.map(JSON.stringify).join('\n')
   );
+}
+
+function createLongToolSession(projectPath: string, sessionLabel: string): string {
+  return createRawSession(projectPath, sessionLabel, [
+    {
+      type: 'user',
+      uuid: `msg-${sessionLabel}-0`,
+      parentUuid: null,
+      timestamp: new Date(Date.now() - 3000).toISOString(),
+      cwd: projectPath,
+      gitBranch: 'main',
+      version: '2.0.0',
+      message: {
+        role: 'user',
+        content: `Prompt with source ellipsis ... ${'u'.repeat(64)}`,
+      },
+    },
+    {
+      type: 'assistant',
+      uuid: `msg-${sessionLabel}-1`,
+      parentUuid: `msg-${sessionLabel}-0`,
+      timestamp: new Date(Date.now() - 2000).toISOString(),
+      message: {
+        role: 'assistant',
+        model: 'claude-3-sonnet',
+        content: [
+          { type: 'thinking', thinking: LONG_VIEW_THINKING },
+          { type: 'text', text: LONG_VIEW_TEXT },
+          {
+            type: 'tool_use',
+            id: `tool-${sessionLabel}`,
+            name: 'Edit',
+            input: LONG_VIEW_TOOL_INPUT,
+          },
+        ],
+        stop_reason: 'tool_use',
+        usage: {
+          input_tokens: 100,
+          output_tokens: 200,
+          cache_creation_input_tokens: 500,
+          cache_read_input_tokens: 5000,
+        },
+      },
+    },
+    {
+      type: 'user',
+      uuid: `msg-${sessionLabel}-2`,
+      parentUuid: `msg-${sessionLabel}-1`,
+      timestamp: new Date(Date.now() - 1000).toISOString(),
+      cwd: projectPath,
+      message: {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: `tool-${sessionLabel}`,
+            content: LONG_VIEW_TOOL_RESULT,
+          },
+        ],
+      },
+    },
+    {
+      type: 'user',
+      uuid: `msg-${sessionLabel}-3`,
+      parentUuid: `msg-${sessionLabel}-2`,
+      timestamp: new Date().toISOString(),
+      cwd: projectPath,
+      message: {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: `fallback-${sessionLabel}`,
+            content: `fallback ${'f'.repeat(1200)}`,
+          },
+        ],
+      },
+    },
+  ]);
 }
 
 /**
@@ -430,6 +522,149 @@ describe('cch view', () => {
       expect(
         json.data.messages.some((message: { type: string }) => message.type === 'progress')
       ).toBe(true);
+    });
+  });
+
+  describe('full-detail mode rendering', () => {
+    it('should render complete long tool and thinking content with --full while preserving no-pager output', () => {
+      const sessionId = createLongToolSession('/Users/dev/project-long', 'long-full-mode');
+
+      const { stdout, exitCode } = runCli(`view ${sessionId} --full`);
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain(LONG_VIEW_TEXT);
+      expect(stdout).toContain(LONG_VIEW_THINKING);
+      expect(stdout).toContain(`"file_path": "${LONG_VIEW_TOOL_INPUT.file_path}"`);
+      expect(stdout).toContain(`"old_string": "${LONG_VIEW_TOOL_INPUT.old_string}"`);
+      expect(stdout).toContain(`"new_string": "${LONG_VIEW_TOOL_INPUT.new_string}"`);
+      expect(stdout).toContain('result-line-1');
+      expect(stdout).toContain(`tool-output ${'c'.repeat(1200)}`);
+      expect(stdout).toContain('result-line-3');
+      expect(stdout).not.toContain('[...truncated for display]');
+    });
+  });
+
+  describe('default concise rendering and full-fidelity data invariants', () => {
+    it('should visibly abbreviate default output while preserving source ellipses, metadata, order, and tool pairing', () => {
+      const sessionId = createLongToolSession('/Users/dev/project-long', 'long-default-mode');
+
+      const { stdout, exitCode } = runCli(`view ${sessionId}`);
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Session:');
+      expect(stdout).toContain('Project: /Users/dev/project/long');
+      expect(stdout).toContain('Summary: Test session: long-default-mode');
+      expect(stdout).toContain('Prompt with source ellipsis ...');
+      expect(stdout).toContain('[...truncated for display]');
+      expect(stdout.indexOf('USER')).toBeLessThan(stdout.indexOf('ASSISTANT'));
+      expect(stdout.indexOf('[Tool: Edit]')).toBeLessThan(stdout.indexOf('→ Result:'));
+      expect(stdout).toContain(`tool-output ${'c'.repeat(300)}`);
+      expect(stdout).not.toContain(`tool-output ${'c'.repeat(1200)}`);
+    });
+
+    it('should keep JSON output and later library/export retrieval unchanged after default and full human-readable viewing', async () => {
+      const sessionId = createLongToolSession('/Users/dev/project-long', 'long-json-invariance');
+
+      const defaultView = runCli(`view ${sessionId}`);
+      const fullView = runCli(`view ${sessionId} --full`);
+      const jsonView = runCli(`view ${sessionId} --json`);
+
+      expect(defaultView.exitCode).toBe(0);
+      expect(fullView.exitCode).toBe(0);
+      expect(jsonView.exitCode).toBe(0);
+
+      const json = JSON.parse(jsonView.stdout) as {
+        success: boolean;
+        data: {
+          messages: {
+            uuid: string;
+            parentUuid: string | null;
+            type: string;
+            content:
+              | string
+              | (
+                  | { type: 'thinking'; thinking: string }
+                  | { type: 'text'; text: string }
+                  | { type: 'tool_use'; id: string; input: Record<string, unknown> }
+                  | { type: 'tool_result'; tool_use_id: string; content: string }
+                )[];
+          }[];
+        };
+      };
+
+      expect(json.success).toBe(true);
+      expect(jsonView.stdout).not.toContain('[...truncated for display]');
+
+      const session = await getSession(sessionId, { dataPath: TEST_DATA_DIR });
+      const exportedJson = JSON.parse(
+        await exportSessionToJson(sessionId, { dataPath: TEST_DATA_DIR })
+      ) as {
+        messages: typeof session.messages;
+      };
+      const exportedMarkdown = await exportSessionToMarkdown(sessionId, {
+        dataPath: TEST_DATA_DIR,
+      });
+
+      expect(session.messages.map((message) => message.uuid)).toEqual([
+        'summary-aaaaaaaa-bbbb-cccc-dddd-000000000001',
+        'msg-long-json-invariance-0',
+        'msg-long-json-invariance-1',
+        'msg-long-json-invariance-2',
+        'msg-long-json-invariance-3',
+      ]);
+      expect(session.messages[1].parentUuid).toBe(null);
+      expect(session.messages[2].parentUuid).toBe('msg-long-json-invariance-0');
+
+      const assistantMessage = session.messages[2];
+      expect(assistantMessage.type).toBe('assistant');
+      if (assistantMessage.type === 'assistant') {
+        expect(assistantMessage.content[0]).toEqual({
+          type: 'thinking',
+          thinking: LONG_VIEW_THINKING,
+        });
+        expect(assistantMessage.content[1]).toEqual({
+          type: 'text',
+          text: LONG_VIEW_TEXT,
+        });
+        expect(assistantMessage.content[2]).toEqual({
+          type: 'tool_use',
+          id: 'tool-long-json-invariance',
+          name: 'Edit',
+          input: LONG_VIEW_TOOL_INPUT,
+        });
+      }
+
+      const toolResultMessage = session.messages[3];
+      expect(toolResultMessage.type).toBe('user');
+      if (toolResultMessage.type === 'user') {
+        expect(toolResultMessage.parentUuid).toBe('msg-long-json-invariance-1');
+        expect(toolResultMessage.content).toEqual([
+          {
+            type: 'tool_result',
+            tool_use_id: 'tool-long-json-invariance',
+            content: LONG_VIEW_TOOL_RESULT,
+          },
+        ]);
+      }
+
+      const jsonUserMessage = json.data.messages.find(
+        (message) => message.uuid === 'msg-long-json-invariance-0'
+      );
+      const jsonAssistantMessage = json.data.messages.find(
+        (message) => message.uuid === 'msg-long-json-invariance-1'
+      );
+
+      expect(jsonUserMessage?.content).toBe('Prompt with source ellipsis ... ' + 'u'.repeat(64));
+      expect(jsonAssistantMessage?.content).toEqual(
+        session.messages[2].type === 'assistant' ? session.messages[2].content : []
+      );
+      expect(exportedJson.messages).toEqual(JSON.parse(JSON.stringify(session.messages)));
+      expect(exportedMarkdown).toContain(LONG_VIEW_THINKING);
+      expect(exportedMarkdown).toContain(LONG_VIEW_TEXT);
+      expect(exportedMarkdown).toContain(LONG_VIEW_TOOL_INPUT.old_string);
+      expect(exportedMarkdown).toContain(LONG_VIEW_TOOL_INPUT.new_string);
+      expect(exportedMarkdown).toContain(LONG_VIEW_TOOL_RESULT);
+      expect(exportedMarkdown).not.toContain('[...truncated for display]');
     });
   });
 

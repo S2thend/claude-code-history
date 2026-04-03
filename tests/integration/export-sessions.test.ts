@@ -73,6 +73,16 @@ function createLargeExportSessionJson(
   ].join('\n');
 }
 
+const FULL_FIDELITY_USER_TEXT = `full-user ${'u'.repeat(1200)} 终`;
+const FULL_FIDELITY_THINKING = `full-thinking ${'t'.repeat(1200)}`;
+const FULL_FIDELITY_ASSISTANT_TEXT = `full-assistant ${'a'.repeat(1200)}...source`;
+const FULL_FIDELITY_TOOL_RESULT = ['first', `full-result ${'r'.repeat(1200)}`, 'last'].join('\n');
+const FULL_FIDELITY_TOOL_INPUT = {
+  file_path: '/test/project/fidelity.txt',
+  old_string: `old-${'o'.repeat(1200)}`,
+  new_string: `new-${'n'.repeat(1200)}...source`,
+};
+
 describe('export functions', () => {
   const testDataPath = join(tmpdir(), `claude-export-test-${Date.now()}`);
   const projectsPath = join(testDataPath, 'projects');
@@ -114,6 +124,69 @@ describe('export functions', () => {
   const sessionUuid2 = '22222222-2222-2222-2222-222222222222';
   const sessionUuid3 = '33333333-3333-3333-3333-333333333333';
   const sessionUuid4 = '44444444-4444-4444-4444-444444444444';
+  const sessionUuid5 = '55555555-5555-5555-5555-555555555555';
+
+  const fullFidelitySession = [
+    JSON.stringify({
+      type: 'summary',
+      summary: 'Full fidelity export fixture',
+      leafUuid: 'fidelity-msg-003',
+    }),
+    JSON.stringify({
+      type: 'user',
+      uuid: 'fidelity-msg-001',
+      parentUuid: null,
+      timestamp: '2026-04-03T10:00:00.000Z',
+      sessionId: sessionUuid5,
+      cwd: '/test/project',
+      gitBranch: 'main',
+      version: '2.0.55',
+      message: {
+        role: 'user',
+        content: FULL_FIDELITY_USER_TEXT,
+      },
+    }),
+    JSON.stringify({
+      type: 'assistant',
+      uuid: 'fidelity-msg-002',
+      parentUuid: 'fidelity-msg-001',
+      timestamp: '2026-04-03T10:00:01.000Z',
+      sessionId: sessionUuid5,
+      message: {
+        model: 'claude-opus-4-5-20251101',
+        role: 'assistant',
+        content: [
+          { type: 'thinking', thinking: FULL_FIDELITY_THINKING },
+          { type: 'text', text: FULL_FIDELITY_ASSISTANT_TEXT },
+          {
+            type: 'tool_use',
+            id: 'fidelity-tool-1',
+            name: 'Edit',
+            input: FULL_FIDELITY_TOOL_INPUT,
+          },
+        ],
+        stop_reason: 'tool_use',
+      },
+    }),
+    JSON.stringify({
+      type: 'user',
+      uuid: 'fidelity-msg-003',
+      parentUuid: 'fidelity-msg-002',
+      timestamp: '2026-04-03T10:00:02.000Z',
+      sessionId: sessionUuid5,
+      cwd: '/test/project',
+      message: {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: 'fidelity-tool-1',
+            content: FULL_FIDELITY_TOOL_RESULT,
+          },
+        ],
+      },
+    }),
+  ].join('\n');
 
   beforeAll(async () => {
     const projectDir = join(projectsPath, '-test-project');
@@ -123,6 +196,7 @@ describe('export functions', () => {
     await writeFile(join(projectDir, `${sessionUuid2}.jsonl`), session2);
     await writeFile(join(projectDir, `${sessionUuid3}.jsonl`), sessionWithAgent);
     await writeFile(join(projectDir, `${sessionUuid4}.jsonl`), progressSession);
+    await writeFile(join(projectDir, `${sessionUuid5}.jsonl`), fullFidelitySession);
     await writeFile(join(projectDir, 'agent-abc123.jsonl'), agentSession);
   });
 
@@ -168,6 +242,58 @@ describe('export functions', () => {
       expect(
         session.messages.some((message: { type: string }) => message.type === 'progress')
       ).toBe(true);
+    });
+
+    it('should preserve long message and tool payload content in exported JSON', async () => {
+      const json = await exportSessionToJson(sessionUuid5, { dataPath: testDataPath });
+      const session = JSON.parse(json) as {
+        messages: {
+          uuid: string;
+          type: string;
+          content:
+            | string
+            | (
+                | { type: 'thinking'; thinking: string }
+                | { type: 'text'; text: string }
+                | {
+                    type: 'tool_use';
+                    id: string;
+                    name: string;
+                    input: Record<string, unknown>;
+                  }
+                | { type: 'tool_result'; tool_use_id: string; content: string }
+              )[];
+        }[];
+      };
+
+      const userMessage = session.messages.find((message) => message.uuid === 'fidelity-msg-001');
+      expect(userMessage?.content).toBe(FULL_FIDELITY_USER_TEXT);
+
+      const assistantMessage = session.messages.find(
+        (message) => message.uuid === 'fidelity-msg-002'
+      );
+      expect(assistantMessage?.content).toEqual([
+        { type: 'thinking', thinking: FULL_FIDELITY_THINKING },
+        { type: 'text', text: FULL_FIDELITY_ASSISTANT_TEXT },
+        {
+          type: 'tool_use',
+          id: 'fidelity-tool-1',
+          name: 'Edit',
+          input: FULL_FIDELITY_TOOL_INPUT,
+        },
+      ]);
+
+      const toolResultMessage = session.messages.find(
+        (message) => message.uuid === 'fidelity-msg-003'
+      );
+      expect(toolResultMessage?.content).toEqual([
+        {
+          type: 'tool_result',
+          tool_use_id: 'fidelity-tool-1',
+          content: FULL_FIDELITY_TOOL_RESULT,
+        },
+      ]);
+      expect(json).not.toContain('[...truncated for display]');
     });
   });
 
@@ -264,6 +390,21 @@ describe('export functions', () => {
       expect(markdown).toContain('UUID');
       expect(markdown).toContain('CWD');
     });
+
+    it('should preserve long message and tool payload content in Markdown export', async () => {
+      const markdown = await exportSessionToMarkdown(sessionUuid5, {
+        dataPath: testDataPath,
+      });
+
+      expect(markdown).toContain(FULL_FIDELITY_USER_TEXT);
+      expect(markdown).toContain(FULL_FIDELITY_THINKING);
+      expect(markdown).toContain(FULL_FIDELITY_ASSISTANT_TEXT);
+      expect(markdown).toContain(FULL_FIDELITY_TOOL_INPUT.file_path);
+      expect(markdown).toContain(FULL_FIDELITY_TOOL_INPUT.old_string);
+      expect(markdown).toContain(FULL_FIDELITY_TOOL_INPUT.new_string);
+      expect(markdown).toContain(FULL_FIDELITY_TOOL_RESULT);
+      expect(markdown).not.toContain('[...truncated for display]');
+    });
   });
 
   describe('exportAllSessionsToJson', () => {
@@ -272,7 +413,7 @@ describe('export functions', () => {
       const sessions = JSON.parse(json);
 
       expect(Array.isArray(sessions)).toBe(true);
-      expect(sessions.length).toBe(4);
+      expect(sessions.length).toBe(5);
     });
 
     it('should include all sessions', async () => {
@@ -284,6 +425,7 @@ describe('export functions', () => {
       expect(ids).toContain(sessionUuid2);
       expect(ids).toContain(sessionUuid3);
       expect(ids).toContain(sessionUuid4);
+      expect(ids).toContain(sessionUuid5);
     });
   });
 

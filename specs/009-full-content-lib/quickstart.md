@@ -37,7 +37,7 @@ This guide maps the display/data-fidelity boundary fix onto the current codebase
 ### Step 2: Add Formatter-Level Full Mode
 
 - Extend `SessionFormatOptions` with `full?: boolean`.
-- Introduce a formatter helper that returns the original string in full mode and applies `[...truncated for display]` only when full mode is off, preserving the current 300-character tool-input cap, 500-character tool-result cap, 100-character thinking cap, and 200-character fallback-preview cap.
+- Introduce a formatter helper such as `formatDisplayPreview()` that returns the original string in full mode and applies `[...truncated for display]` only when full mode is off, preserving the current 300-character tool-input cap, 500-character tool-result cap, 100-character thinking cap, and 200-character fallback-preview cap.
 - Apply that helper to tool input rendering, tool result rendering, thinking previews, and fallback tool-result previews.
 
 ### Step 3: Wire `--full/-f` Into `cch view`

@@ -19,6 +19,87 @@ import {
   writeProjectSessionFile,
 } from '../helpers/agent-linking.js';
 
+const LONG_TEXT = `Long plain text ${'x'.repeat(1200)} 终`;
+const LONG_TOOL_RESULT = ['line-1', `tool-result ${'y'.repeat(1200)}...source`, 'line-3'].join(
+  '\n'
+);
+const LONG_THINKING_TEXT = `reasoning ${'z'.repeat(1200)}`;
+const LONG_TOOL_INPUT = {
+  file_path: '/test/project/long-file.txt',
+  old_string: `old ${'a'.repeat(1200)}\n下一行`,
+  new_string: `new ${'b'.repeat(1200)}...source`,
+};
+
+function createLongContentSessionJson(sessionId: string): string {
+  return [
+    JSON.stringify({
+      type: 'summary',
+      summary: 'Long content fixture',
+      leafUuid: `${sessionId}-tool-result`,
+    }),
+    JSON.stringify({
+      type: 'user',
+      uuid: `${sessionId}-user`,
+      parentUuid: null,
+      timestamp: '2026-04-03T10:00:00.000Z',
+      sessionId,
+      cwd: '/test/project',
+      gitBranch: 'main',
+      version: '2.0.55',
+      message: {
+        role: 'user',
+        content: LONG_TEXT,
+      },
+    }),
+    JSON.stringify({
+      type: 'assistant',
+      uuid: `${sessionId}-assistant`,
+      parentUuid: `${sessionId}-user`,
+      timestamp: '2026-04-03T10:00:01.000Z',
+      sessionId,
+      message: {
+        model: 'claude-opus-4-5-20251101',
+        role: 'assistant',
+        content: [
+          { type: 'thinking', thinking: LONG_THINKING_TEXT },
+          { type: 'text', text: LONG_TEXT },
+          {
+            type: 'tool_use',
+            id: `${sessionId}-tool`,
+            name: 'Edit',
+            input: LONG_TOOL_INPUT,
+          },
+        ],
+        stop_reason: 'tool_use',
+        usage: {
+          input_tokens: 100,
+          output_tokens: 200,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+        },
+      },
+    }),
+    JSON.stringify({
+      type: 'user',
+      uuid: `${sessionId}-tool-result`,
+      parentUuid: `${sessionId}-assistant`,
+      timestamp: '2026-04-03T10:00:02.000Z',
+      sessionId,
+      cwd: '/test/project',
+      message: {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: `${sessionId}-tool`,
+            content: LONG_TOOL_RESULT,
+          },
+        ],
+      },
+    }),
+  ].join('\n');
+}
+
 describe('getSession', () => {
   const testDataPath = join(tmpdir(), `claude-get-test-${Date.now()}`);
   const projectsPath = join(testDataPath, 'projects');
@@ -53,6 +134,7 @@ describe('getSession', () => {
   const sessionUuid1 = '11111111-1111-1111-1111-111111111111';
   const sessionUuid2 = '22222222-2222-2222-2222-222222222222';
   const sessionUuid3 = '33333333-3333-3333-3333-333333333333';
+  const sessionUuid4 = '44444444-4444-4444-4444-444444444444';
 
   beforeAll(async () => {
     const projectDir = join(projectsPath, '-test-project');
@@ -61,6 +143,7 @@ describe('getSession', () => {
     await writeFile(join(projectDir, `${sessionUuid1}.jsonl`), session1);
     await writeFile(join(projectDir, `${sessionUuid2}.jsonl`), session2);
     await writeFile(join(projectDir, `${sessionUuid3}.jsonl`), progressSession);
+    await writeFile(join(projectDir, `${sessionUuid4}.jsonl`), createLongContentSessionJson(sessionUuid4));
     await writeFile(join(projectDir, 'agent-xyz789.jsonl'), agentSession);
   });
 
@@ -73,7 +156,7 @@ describe('getSession', () => {
       const session = await getSession(0, { dataPath: testDataPath });
 
       // Should return one of the sessions (order depends on file mtime)
-      expect([sessionUuid1, sessionUuid2, sessionUuid3]).toContain(session.id);
+      expect([sessionUuid1, sessionUuid2, sessionUuid3, sessionUuid4]).toContain(session.id);
       expect(session.summary).toBeDefined();
     });
 
@@ -83,7 +166,7 @@ describe('getSession', () => {
 
       // Should return different sessions
       expect(session0.id).not.toBe(session1.id);
-      expect([sessionUuid1, sessionUuid2, sessionUuid3]).toContain(session1.id);
+      expect([sessionUuid1, sessionUuid2, sessionUuid3, sessionUuid4]).toContain(session1.id);
     });
 
     it('should throw SessionNotFoundError for out-of-bounds index', async () => {
@@ -200,6 +283,56 @@ describe('getSession', () => {
         expect(content[0].type).toBe('tool_result');
       }
     });
+
+    it('should preserve long user text, assistant text, thinking, tool input, tool results, and edge-case values', async () => {
+      const session = await getSession(sessionUuid4, { dataPath: testDataPath });
+
+      expect(session.summary).toBe('Long content fixture');
+      expect(session.messages).toHaveLength(4);
+      expect(session.messageCount).toBe(3);
+
+      const userMessage = session.messages.find((message) => message.uuid === `${sessionUuid4}-user`);
+      expect(userMessage?.type).toBe('user');
+      if (userMessage?.type === 'user') {
+        expect(userMessage.content).toBe(LONG_TEXT);
+      }
+
+      const assistantMessage = session.messages.find(
+        (message) => message.uuid === `${sessionUuid4}-assistant`
+      );
+      expect(assistantMessage?.type).toBe('assistant');
+      if (assistantMessage?.type === 'assistant') {
+        expect(assistantMessage.content).toHaveLength(3);
+        expect(assistantMessage.content[0]).toEqual({
+          type: 'thinking',
+          thinking: LONG_THINKING_TEXT,
+        });
+        expect(assistantMessage.content[1]).toEqual({
+          type: 'text',
+          text: LONG_TEXT,
+        });
+        expect(assistantMessage.content[2]).toEqual({
+          type: 'tool_use',
+          id: `${sessionUuid4}-tool`,
+          name: 'Edit',
+          input: LONG_TOOL_INPUT,
+        });
+      }
+
+      const toolResultMessage = session.messages.find(
+        (message) => message.uuid === `${sessionUuid4}-tool-result`
+      );
+      expect(toolResultMessage?.type).toBe('user');
+      if (toolResultMessage?.type === 'user') {
+        expect(toolResultMessage.content).toEqual([
+          {
+            type: 'tool_result',
+            tool_use_id: `${sessionUuid4}-tool`,
+            content: LONG_TOOL_RESULT,
+          },
+        ]);
+      }
+    });
   });
 
   describe('error handling', () => {
@@ -215,16 +348,80 @@ describe('getAgentSession', () => {
   const testDataPath = join(tmpdir(), `claude-agent-test-${Date.now()}`);
   const projectsPath = join(testDataPath, 'projects');
 
+  const longAgentSessionId = 'long789';
+
   const agentSession = [
     '{"type":"summary","summary":"Agent research task","leafUuid":"agent-msg-002"}',
     '{"type":"user","uuid":"agent-msg-001","parentUuid":null,"timestamp":"2025-12-01T10:05:00.000Z","sessionId":"session-001","agentId":"abc123","cwd":"/test/project","isSidechain":true,"message":{"role":"user","content":"Research this topic"}}',
     '{"type":"assistant","uuid":"agent-msg-002","parentUuid":"agent-msg-001","timestamp":"2025-12-01T10:05:30.000Z","sessionId":"session-001","agentId":"abc123","message":{"model":"claude-haiku-4-5-20251001","role":"assistant","content":[{"type":"thinking","thinking":"Let me research..."},{"type":"text","text":"Here are my findings..."}],"stop_reason":"end_turn"}}',
   ].join('\n');
 
+  const longAgentSession = [
+    '{"type":"summary","summary":"Long agent task","leafUuid":"long-agent-msg-003"}',
+    JSON.stringify({
+      type: 'user',
+      uuid: 'long-agent-msg-001',
+      parentUuid: null,
+      timestamp: '2026-04-03T10:05:00.000Z',
+      sessionId: 'session-long-agent',
+      agentId: longAgentSessionId,
+      cwd: '/test/project',
+      isSidechain: true,
+      message: {
+        role: 'user',
+        content: LONG_TEXT,
+      },
+    }),
+    JSON.stringify({
+      type: 'assistant',
+      uuid: 'long-agent-msg-002',
+      parentUuid: 'long-agent-msg-001',
+      timestamp: '2026-04-03T10:05:30.000Z',
+      sessionId: 'session-long-agent',
+      agentId: longAgentSessionId,
+      message: {
+        model: 'claude-haiku-4-5-20251001',
+        role: 'assistant',
+        content: [
+          { type: 'thinking', thinking: LONG_THINKING_TEXT },
+          { type: 'text', text: LONG_TEXT },
+          {
+            type: 'tool_use',
+            id: 'tool-long-agent',
+            name: 'Edit',
+            input: LONG_TOOL_INPUT,
+          },
+        ],
+        stop_reason: 'tool_use',
+      },
+    }),
+    JSON.stringify({
+      type: 'user',
+      uuid: 'long-agent-msg-003',
+      parentUuid: 'long-agent-msg-002',
+      timestamp: '2026-04-03T10:05:45.000Z',
+      sessionId: 'session-long-agent',
+      agentId: longAgentSessionId,
+      cwd: '/test/project',
+      isSidechain: true,
+      message: {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: 'tool-long-agent',
+            content: LONG_TOOL_RESULT,
+          },
+        ],
+      },
+    }),
+  ].join('\n');
+
   beforeAll(async () => {
     const projectDir = join(projectsPath, '-test-project');
     await mkdir(projectDir, { recursive: true });
     await writeFile(join(projectDir, 'agent-abc123.jsonl'), agentSession);
+    await writeFile(join(projectDir, `agent-${longAgentSessionId}.jsonl`), longAgentSession);
   });
 
   afterAll(async () => {
@@ -253,6 +450,54 @@ describe('getAgentSession', () => {
     );
 
     expect(hasThinking).toBe(true);
+  });
+
+  it('should preserve long agent message text, thinking, tool input, and tool result content', async () => {
+    const session = await getAgentSession(longAgentSessionId, { dataPath: testDataPath });
+
+    expect(session.summary).toBe('Long agent task');
+    expect(session.messages).toHaveLength(4);
+
+    const userMessage = session.messages.find((message) => message.uuid === 'long-agent-msg-001');
+    expect(userMessage?.type).toBe('user');
+    if (userMessage?.type === 'user') {
+      expect(userMessage.content).toBe(LONG_TEXT);
+    }
+
+    const assistantMessage = session.messages.find(
+      (message) => message.uuid === 'long-agent-msg-002'
+    );
+    expect(assistantMessage?.type).toBe('assistant');
+    if (assistantMessage?.type === 'assistant') {
+      expect(assistantMessage.content[0]).toEqual({
+        type: 'thinking',
+        thinking: LONG_THINKING_TEXT,
+      });
+      expect(assistantMessage.content[1]).toEqual({
+        type: 'text',
+        text: LONG_TEXT,
+      });
+      expect(assistantMessage.content[2]).toEqual({
+        type: 'tool_use',
+        id: 'tool-long-agent',
+        name: 'Edit',
+        input: LONG_TOOL_INPUT,
+      });
+    }
+
+    const toolResultMessage = session.messages.find(
+      (message) => message.uuid === 'long-agent-msg-003'
+    );
+    expect(toolResultMessage?.type).toBe('user');
+    if (toolResultMessage?.type === 'user') {
+      expect(toolResultMessage.content).toEqual([
+        {
+          type: 'tool_result',
+          tool_use_id: 'tool-long-agent',
+          content: LONG_TOOL_RESULT,
+        },
+      ]);
+    }
   });
 
   it('should throw SessionNotFoundError for non-existent agent', async () => {

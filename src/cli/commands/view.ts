@@ -142,6 +142,7 @@ async function executeView(sessionArg: string, options: ViewOptions): Promise<vo
           filter: filterTypes,
           totalMessageCount,
           tokenStats,
+          full: options.full,
         });
         await outputWithPager(formattedSession, options.full);
       }
@@ -165,6 +166,7 @@ async function executeView(sessionArg: string, options: ViewOptions): Promise<vo
         filter: filterTypes ?? [],
         totalMessageCount,
         tokenStats,
+        full: options.full,
       });
       await outputWithPager(formattedSession, options.full);
     }

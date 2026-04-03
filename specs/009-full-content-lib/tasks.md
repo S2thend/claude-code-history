@@ -24,8 +24,8 @@
 
 **Purpose**: Prepare reusable long-content fixture scaffolding for library, parser, and CLI regression tests.
 
-- [ ] T001 [P] Add long-message and long-tool-payload fixture builders for session retrieval tests in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/get-session.test.ts`
-- [ ] T002 [P] Add long-tool-output fixture setup for default/full CLI view rendering tests in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/cli/view.test.ts`
+- [X] T001 [P] Add long-message and long-tool-payload fixture builders for session retrieval tests in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/get-session.test.ts`
+- [X] T002 [P] Add long-tool-output fixture setup for default/full CLI view rendering tests in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/cli/view.test.ts`
 
 ---
 
@@ -37,13 +37,13 @@
 
 ### Tests for User Story 1
 
-- [ ] T003 [P] [US1] Add parser warning assertions proving long invalid JSONL lines are returned in full in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/unit/parser.test.ts`
-- [ ] T004 [P] [US1] Add `getSession()` and `getAgentSession()` assertions for long user text, assistant text, tool input, tool result, empty-string, multiline, and non-ASCII payloads in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/get-session.test.ts`
-- [ ] T005 [P] [US1] Add export regression assertions proving long message and tool payloads remain complete in JSON and Markdown exports in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/export-sessions.test.ts`
+- [X] T003 [P] [US1] Add parser warning assertions proving long invalid JSONL lines are returned in full in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/unit/parser.test.ts`
+- [X] T004 [P] [US1] Add `getSession()` and `getAgentSession()` assertions for long user text, assistant text, tool input, tool result, empty-string, multiline, and non-ASCII payloads in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/get-session.test.ts`
+- [X] T005 [P] [US1] Add export regression assertions proving long message and tool payloads remain complete in JSON and Markdown exports in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/export-sessions.test.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Remove parser warning content truncation and return the full trimmed invalid-line text from `parseJsonLine()` in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/parser.ts`
+- [X] T006 [US1] Remove parser warning content truncation and return the full trimmed invalid-line text from `parseJsonLine()` in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/parser.ts`
 
 **Checkpoint**: `US1` is complete when long parser warnings and long session payloads are preserved exactly for programmatic callers.
 
@@ -57,14 +57,14 @@
 
 ### Tests for User Story 2
 
-- [ ] T007 [P] [US2] Add formatter unit tests proving `formatSession(..., { full: true })` renders complete tool input, tool result, thinking, and fallback tool-result content in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/unit/cli/formatters/session.test.ts`
-- [ ] T008 [P] [US2] Add CLI integration tests proving `cch view --full` renders complete long content and still bypasses pagination in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/cli/view.test.ts`
+- [X] T007 [P] [US2] Add formatter unit tests proving `formatSession(..., { full: true })` renders complete tool input, tool result, thinking, and fallback tool-result content in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/unit/cli/formatters/session.test.ts`
+- [X] T008 [P] [US2] Add CLI integration tests proving `cch view --full` renders complete long content and still bypasses pagination in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/cli/view.test.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T009 [US2] Add `full?: boolean` to `SessionFormatOptions` and thread the option through the private formatter call chain in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/cli/formatters/session.ts`
-- [ ] T010 [US2] Forward `options.full` into every human-readable `formatSession(...)` call in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/cli/commands/view.ts`
-- [ ] T011 [US2] Disable all formatter-side abbreviation branches when `full` is true for tool inputs, tool results, thinking blocks, and fallback tool-result previews in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/cli/formatters/session.ts`
+- [X] T009 [US2] Add `full?: boolean` to `SessionFormatOptions` and thread the option through the private formatter call chain in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/cli/formatters/session.ts`
+- [X] T010 [US2] Forward `options.full` into every human-readable `formatSession(...)` call in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/cli/commands/view.ts`
+- [X] T011 [US2] Disable all formatter-side abbreviation branches when `full` is true for tool inputs, tool results, thinking blocks, and fallback tool-result previews in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/cli/formatters/session.ts`
 
 **Checkpoint**: `US2` is complete when `cch view --full` provides a complete human-readable transcript with no field-level abbreviation.
 
@@ -78,12 +78,12 @@
 
 ### Tests for User Story 3
 
-- [ ] T012 [P] [US3] Add default-mode formatter unit tests proving long tool input, tool result, thinking, and fallback tool-result content are abbreviated with `[...truncated for display]` at the preserved `300/500/100/200` caps in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/unit/cli/formatters/session.test.ts`
-- [ ] T013 [P] [US3] Add default `cch view` concise-output, `cch view --json` full-payload, source-authored `...`, message order/metadata/tool-result association, and post-view `getSession()`/export invariance regression tests in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/cli/view.test.ts`
+- [X] T012 [P] [US3] Add default-mode formatter unit tests proving long tool input, tool result, thinking, and fallback tool-result content are abbreviated with `[...truncated for display]` at the preserved `300/500/100/200` caps in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/unit/cli/formatters/session.test.ts`
+- [X] T013 [P] [US3] Add default `cch view` concise-output, `cch view --json` full-payload, source-authored `...`, message order/metadata/tool-result association, and post-view `getSession()`/export invariance regression tests in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/cli/view.test.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T014 [US3] Centralize default formatter-only abbreviation in one helper and apply `[...truncated for display]` at the preserved 300/500/100/200 caps for long tool input, tool result, thinking, and fallback tool-result content in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/cli/formatters/session.ts`
+- [X] T014 [US3] Centralize default formatter-only abbreviation in one helper and apply `[...truncated for display]` at the preserved 300/500/100/200 caps for long tool input, tool result, thinking, and fallback tool-result content in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/cli/formatters/session.ts`
 
 **Checkpoint**: `US3` is complete when default human-readable output is concise and visibly abbreviated, but JSON and `--full` output remain complete.
 
@@ -93,9 +93,9 @@
 
 **Purpose**: Finalize docs, verify the no-truncation boundary, and run the full regression suite.
 
-- [ ] T015 [P] Update implementation notes and command examples if behavior or helper names changed in `/Users/borui/Devs/vibe-coding-history/claude-code-history/specs/009-full-content-lib/quickstart.md`
-- [ ] T016 [P] Scan for residual display-style shortening under `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/` and remove or rewrite any remaining caller-visible truncation logic in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/parser.ts`
-- [ ] T017 Run `npm run typecheck`, `npm test`, and `npm run lint` using `/Users/borui/Devs/vibe-coding-history/claude-code-history/package.json` and fix any failures in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/` or `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/`
+- [X] T015 [P] Update implementation notes and command examples if behavior or helper names changed in `/Users/borui/Devs/vibe-coding-history/claude-code-history/specs/009-full-content-lib/quickstart.md`
+- [X] T016 [P] Scan for residual display-style shortening under `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/` and remove or rewrite any remaining caller-visible truncation logic in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/parser.ts`
+- [X] T017 Run `npm run typecheck`, `npm test`, and `npm run lint` using `/Users/borui/Devs/vibe-coding-history/claude-code-history/package.json` and fix any failures in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/` or `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/`
 
 ---
 
