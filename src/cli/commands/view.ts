@@ -82,7 +82,7 @@ async function executeView(sessionArg: string, options: ViewOptions): Promise<vo
     const exitCode = handleError(
       usageError(
         'Session identifier required',
-        "Usage: cch view <session>\n\nProvide a session index, session UUID, or agent ID."
+        'Usage: cch view <session>\n\nProvide a session index, session UUID, or agent ID.'
       ),
       options.json
     );

@@ -117,7 +117,9 @@ describe('session lookup performance', () => {
     expect(mainSession.id).toBe(buildPerformanceSessionId(TOTAL_MAIN_SESSIONS));
     expect(mainLookup.elapsedMs).toBeLessThan(1000);
 
-    const agentLookup = await measureAsync(() => getSession('linked123', { dataPath: testDataPath }));
+    const agentLookup = await measureAsync(() =>
+      getSession('linked123', { dataPath: testDataPath })
+    );
     const agentSession = agentLookup.result;
 
     expect(agentSession.id).toBe('agent-linked123');
@@ -126,15 +128,11 @@ describe('session lookup performance', () => {
 
   it('should keep direct CLI agent lookup under one second on a 100+ session fixture', () => {
     const { result, elapsedMs } = measure(() =>
-      execFileSync(
-        'node',
-        [CLI_PATH, '--data-path', testDataPath, 'view', 'linked123', '--json'],
-        {
-          encoding: 'utf-8',
-          timeout: 10000,
-          stdio: ['pipe', 'pipe', 'pipe'],
-        }
-      )
+      execFileSync('node', [CLI_PATH, '--data-path', testDataPath, 'view', 'linked123', '--json'], {
+        encoding: 'utf-8',
+        timeout: 10000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
     );
     const parsed = JSON.parse(result) as {
       success: boolean;

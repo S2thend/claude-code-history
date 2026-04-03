@@ -22,11 +22,11 @@ import { resolveConfig, paginate, createPagination, type ResolvedConfig } from '
 import {
   getProjectsPath,
   decodeProjectPath,
-    discoverProjectSessionFiles,
-    extractSessionIdFromPath,
-    isUUID,
-    getNestedOwnerSessionId,
-    getAgentStorageLayout,
+  discoverProjectSessionFiles,
+  extractSessionIdFromPath,
+  isUUID,
+  getNestedOwnerSessionId,
+  getAgentStorageLayout,
 } from './platform.js';
 import {
   extractExplicitAgentIds,
@@ -36,11 +36,7 @@ import {
   parseSessionMetadata,
   type SessionMetadata,
 } from './parser.js';
-import {
-  AmbiguousAgentSessionError,
-  DataNotFoundError,
-  SessionNotFoundError,
-} from './errors.js';
+import { AmbiguousAgentSessionError, DataNotFoundError, SessionNotFoundError } from './errors.js';
 
 // =============================================================================
 // Types
@@ -190,7 +186,9 @@ function sortSessionsByModifiedTime(sessions: SessionInfo[]): SessionInfo[] {
   return [...sessions].sort((a, b) => b.modifiedTime.getTime() - a.modifiedTime.getTime());
 }
 
-async function analyzeMainSessions(mainSessions: SessionInfo[]): Promise<Map<string, MainSessionAnalysis>> {
+async function analyzeMainSessions(
+  mainSessions: SessionInfo[]
+): Promise<Map<string, MainSessionAnalysis>> {
   const analysisBySessionId = new Map<string, MainSessionAnalysis>();
 
   for (const session of mainSessions) {
@@ -256,7 +254,10 @@ async function getLinkContextForProject(
   return context;
 }
 
-function resolveAgentLinks(info: SessionInfo, context: LinkContext): {
+function resolveAgentLinks(
+  info: SessionInfo,
+  context: LinkContext
+): {
   agentIds: string[];
   unresolvedAgentIds: string[];
 } {
@@ -322,8 +323,7 @@ async function buildSessionSummary(
 ): Promise<SessionSummary> {
   const context = await getLinkContextForProject(info.projectPath, allSessions, linkContextCache);
   const analysis = context.analysisBySessionId.get(info.id);
-  const metadata =
-    analysis?.metadata ?? (await parseSessionMetadata(info.filePath)).data;
+  const metadata = analysis?.metadata ?? (await parseSessionMetadata(info.filePath)).data;
   const links = resolveAgentLinks(info, context);
 
   return {
@@ -345,15 +345,10 @@ function normalizeAgentLookupId(agentId: string): string {
 
 function findAgentSessionMatches(agentId: string, allSessions: SessionInfo[]): SessionInfo[] {
   const normalizedAgentId = normalizeAgentLookupId(agentId);
-  return allSessions.filter(
-    (session) => session.isAgent && session.agentId === normalizedAgentId
-  );
+  return allSessions.filter((session) => session.isAgent && session.agentId === normalizedAgentId);
 }
 
-async function loadSessionRecord(
-  info: SessionInfo,
-  allSessions: SessionInfo[]
-): Promise<Session> {
+async function loadSessionRecord(info: SessionInfo, allSessions: SessionInfo[]): Promise<Session> {
   const [{ data: messages }, { data: metadata }] = await Promise.all([
     parseSessionFile(info.filePath),
     parseSessionMetadata(info.filePath),
@@ -387,7 +382,9 @@ export async function listSessions(
   await validateDataPath(resolved.dataPath);
 
   const allSessions = await discoverSessions(resolved);
-  const mainSessions = sortSessionsByModifiedTime(allSessions.filter((session) => !session.isAgent));
+  const mainSessions = sortSessionsByModifiedTime(
+    allSessions.filter((session) => !session.isAgent)
+  );
   const paginatedInfos = paginate(mainSessions, resolved);
   const linkContextCache = new Map<string, LinkContext>();
   const summaries: SessionSummary[] = [];
@@ -417,7 +414,9 @@ export async function getSession(
   await validateDataPath(resolved.dataPath);
 
   const allSessions = await discoverSessions(resolved);
-  const mainSessions = sortSessionsByModifiedTime(allSessions.filter((session) => !session.isAgent));
+  const mainSessions = sortSessionsByModifiedTime(
+    allSessions.filter((session) => !session.isAgent)
+  );
 
   if (typeof identifier === 'string' && identifier.startsWith('agent-')) {
     return getAgentSession(identifier, config);

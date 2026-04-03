@@ -163,10 +163,7 @@ export function getNestedOwnerSessionId(projectDir: string, filePath: string): s
 /**
  * Determine how an agent session file is stored.
  */
-export function getAgentStorageLayout(
-  projectDir: string,
-  filePath: string
-): 'flat' | 'nested' {
+export function getAgentStorageLayout(projectDir: string, filePath: string): 'flat' | 'nested' {
   return getNestedOwnerSessionId(projectDir, filePath) ? 'nested' : 'flat';
 }
 

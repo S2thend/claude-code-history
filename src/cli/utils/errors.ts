@@ -92,11 +92,7 @@ export function lookupNotFoundError(message: string, agentId: string, details?: 
 /**
  * Create an ambiguity error for direct agent lookup JSON output.
  */
-export function ambiguousLookupError(
-  message: string,
-  agentId: string,
-  details?: string
-): CliError {
+export function ambiguousLookupError(message: string, agentId: string, details?: string): CliError {
   return new CliError(message, ExitCode.USAGE_ERROR, 'USAGE_ERROR', details, {
     type: 'ambiguous-agent-id',
     agentId,

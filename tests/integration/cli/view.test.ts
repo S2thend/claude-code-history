@@ -181,7 +181,10 @@ function createNestedAgentSession(
     },
   ];
 
-  writeFileSync(join(subagentsDir, `agent-${agentId}.jsonl`), entries.map(JSON.stringify).join('\n'));
+  writeFileSync(
+    join(subagentsDir, `agent-${agentId}.jsonl`),
+    entries.map(JSON.stringify).join('\n')
+  );
 }
 
 /**
