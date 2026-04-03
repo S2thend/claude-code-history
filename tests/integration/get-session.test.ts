@@ -143,7 +143,10 @@ describe('getSession', () => {
     await writeFile(join(projectDir, `${sessionUuid1}.jsonl`), session1);
     await writeFile(join(projectDir, `${sessionUuid2}.jsonl`), session2);
     await writeFile(join(projectDir, `${sessionUuid3}.jsonl`), progressSession);
-    await writeFile(join(projectDir, `${sessionUuid4}.jsonl`), createLongContentSessionJson(sessionUuid4));
+    await writeFile(
+      join(projectDir, `${sessionUuid4}.jsonl`),
+      createLongContentSessionJson(sessionUuid4)
+    );
     await writeFile(join(projectDir, 'agent-xyz789.jsonl'), agentSession);
   });
 
@@ -291,7 +294,9 @@ describe('getSession', () => {
       expect(session.messages).toHaveLength(4);
       expect(session.messageCount).toBe(3);
 
-      const userMessage = session.messages.find((message) => message.uuid === `${sessionUuid4}-user`);
+      const userMessage = session.messages.find(
+        (message) => message.uuid === `${sessionUuid4}-user`
+      );
       expect(userMessage?.type).toBe('user');
       if (userMessage?.type === 'user') {
         expect(userMessage.content).toBe(LONG_TEXT);

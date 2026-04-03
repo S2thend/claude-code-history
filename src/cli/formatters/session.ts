@@ -199,8 +199,11 @@ function formatUserContent(content: string | ToolResultContent[], full: boolean)
       .map((item) => {
         if (item.type === 'tool_result') {
           // Fallback formatting if we somehow get here
-          const preview =
-            formatDisplayPreview(item.content, FALLBACK_TOOL_RESULT_PREVIEW_CHARS, full);
+          const preview = formatDisplayPreview(
+            item.content,
+            FALLBACK_TOOL_RESULT_PREVIEW_CHARS,
+            full
+          );
           return `[Tool Result] ${preview}`;
         }
         return JSON.stringify(item);

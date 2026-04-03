@@ -53,9 +53,11 @@ function createTestSession(overrides?: Partial<Session>): Session {
 
 const LONG_FORMATTER_TEXT = `assistant text ${'t'.repeat(1200)}...source`;
 const LONG_FORMATTER_THINKING = `thinking ${'h'.repeat(1200)}`;
-const LONG_FORMATTER_TOOL_RESULT = ['result-line-1', `result ${'r'.repeat(1200)}`, 'result-line-3'].join(
-  '\n'
-);
+const LONG_FORMATTER_TOOL_RESULT = [
+  'result-line-1',
+  `result ${'r'.repeat(1200)}`,
+  'result-line-3',
+].join('\n');
 const LONG_FORMATTER_TOOL_INPUT = {
   file_path: '/test/large.txt',
   old_string: `old-${'o'.repeat(1200)}`,

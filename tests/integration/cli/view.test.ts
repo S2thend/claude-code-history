@@ -24,9 +24,11 @@ const LONG_VIEW_TOOL_INPUT = {
   old_string: `old-value ${'a'.repeat(1200)}...source`,
   new_string: `new-value ${'b'.repeat(1200)} 终`,
 };
-const LONG_VIEW_TOOL_RESULT = ['result-line-1', `tool-output ${'c'.repeat(1200)}`, 'result-line-3'].join(
-  '\n'
-);
+const LONG_VIEW_TOOL_RESULT = [
+  'result-line-1',
+  `tool-output ${'c'.repeat(1200)}`,
+  'result-line-3',
+].join('\n');
 const LONG_VIEW_THINKING = `thinking ${'d'.repeat(1200)}`;
 const LONG_VIEW_TEXT = `assistant-text ${'e'.repeat(1200)}`;
 
