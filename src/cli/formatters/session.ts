@@ -32,12 +32,31 @@ export interface SessionFormatOptions {
   totalMessageCount: number;
   /** Token statistics to display as footer */
   tokenStats?: AggregateTokenStats;
+  /** Whether all display-side abbreviation should be disabled */
+  full?: boolean;
 }
 
 /**
  * Map of tool_use_id to tool result content
  */
 type ToolResultMap = Map<string, ToolResultContent>;
+
+const DISPLAY_TRUNCATION_MARKER = '[...truncated for display]';
+const TOOL_RESULT_PREVIEW_CHARS = 500;
+const TOOL_INPUT_PREVIEW_CHARS = 300;
+const THINKING_PREVIEW_CHARS = 100;
+const FALLBACK_TOOL_RESULT_PREVIEW_CHARS = 200;
+
+/**
+ * Apply display-only abbreviation for default mode while preserving full-mode output.
+ */
+function formatDisplayPreview(content: string, limit: number, full: boolean): string {
+  if (full || content.length <= limit) {
+    return content;
+  }
+
+  return content.slice(0, limit - DISPLAY_TRUNCATION_MARKER.length) + DISPLAY_TRUNCATION_MARKER;
+}
 
 /**
  * Format a date for display
@@ -70,7 +89,7 @@ function formatTokenUsage(usage: { inputTokens: number; outputTokens: number }):
 /**
  * Format tool result content with proper indentation
  */
-function formatToolResult(result: ToolResultContent): string {
+function formatToolResult(result: ToolResultContent, full: boolean): string {
   const lines: string[] = [];
 
   // Add error indicator if applicable
@@ -81,22 +100,12 @@ function formatToolResult(result: ToolResultContent): string {
   }
 
   // Format the content with indentation
-  const content = result.content;
-  if (content.length > 500) {
-    // Truncate long results but show more than before
-    const truncated = content.slice(0, 497) + '...';
-    const indented = truncated
-      .split('\n')
-      .map((line) => '    ' + line)
-      .join('\n');
-    lines.push(indented);
-  } else {
-    const indented = content
-      .split('\n')
-      .map((line) => '    ' + line)
-      .join('\n');
-    lines.push(indented);
-  }
+  const preview = formatDisplayPreview(result.content, TOOL_RESULT_PREVIEW_CHARS, full);
+  const indented = preview
+    .split('\n')
+    .map((line) => '    ' + line)
+    .join('\n');
+  lines.push(indented);
 
   return lines.join('\n');
 }
@@ -104,17 +113,21 @@ function formatToolResult(result: ToolResultContent): string {
 /**
  * Format tool use content with its result (if available)
  */
-function formatToolUseWithResult(content: ToolUseContent, toolResults: ToolResultMap): string {
+function formatToolUseWithResult(
+  content: ToolUseContent,
+  toolResults: ToolResultMap,
+  full: boolean
+): string {
   const lines: string[] = [];
 
   // Format the tool call
   const inputStr = JSON.stringify(content.input, null, 2);
-  const truncatedInput = inputStr.length > 300 ? inputStr.slice(0, 297) + '...' : inputStr;
+  const inputPreview = formatDisplayPreview(inputStr, TOOL_INPUT_PREVIEW_CHARS, full);
 
   lines.push(`[Tool: ${content.name}]`);
 
   // Add input parameters with indentation
-  const indentedInput = truncatedInput
+  const indentedInput = inputPreview
     .split('\n')
     .map((line) => '  ' + line)
     .join('\n');
@@ -124,7 +137,7 @@ function formatToolUseWithResult(content: ToolUseContent, toolResults: ToolResul
   const result = toolResults.get(content.id);
   if (result) {
     lines.push('');
-    lines.push(formatToolResult(result));
+    lines.push(formatToolResult(result, full));
   }
 
   return lines.join('\n');
@@ -133,18 +146,22 @@ function formatToolUseWithResult(content: ToolUseContent, toolResults: ToolResul
 /**
  * Format a single content item from assistant message
  */
-function formatContentItem(item: AssistantContent, toolResults: ToolResultMap): string {
+function formatContentItem(
+  item: AssistantContent,
+  toolResults: ToolResultMap,
+  full: boolean
+): string {
   if (item.type === 'text') {
     return (item as TextContent).text;
   }
 
   if (item.type === 'tool_use') {
-    return formatToolUseWithResult(item as ToolUseContent, toolResults);
+    return formatToolUseWithResult(item as ToolUseContent, toolResults, full);
   }
 
   if (item.type === 'thinking') {
     const thinking = (item as ThinkingContent).thinking;
-    const preview = thinking.length > 100 ? thinking.slice(0, 97) + '...' : thinking;
+    const preview = formatDisplayPreview(thinking, THINKING_PREVIEW_CHARS, full);
     return `[Thinking] ${preview}`;
   }
 
@@ -170,7 +187,7 @@ function isToolResultMessage(msg: UserMessage): boolean {
 /**
  * Format user message content (only for non-tool-result messages)
  */
-function formatUserContent(content: string | ToolResultContent[]): string {
+function formatUserContent(content: string | ToolResultContent[], full: boolean): string {
   if (typeof content === 'string') {
     return content;
   }
@@ -182,8 +199,11 @@ function formatUserContent(content: string | ToolResultContent[]): string {
       .map((item) => {
         if (item.type === 'tool_result') {
           // Fallback formatting if we somehow get here
-          const preview =
-            item.content.length > 200 ? item.content.slice(0, 197) + '...' : item.content;
+          const preview = formatDisplayPreview(
+            item.content,
+            FALLBACK_TOOL_RESULT_PREVIEW_CHARS,
+            full
+          );
           return `[Tool Result] ${preview}`;
         }
         return JSON.stringify(item);
@@ -197,21 +217,25 @@ function formatUserContent(content: string | ToolResultContent[]): string {
 /**
  * Format a user message for display
  */
-function formatUserMessage(msg: UserMessage): string {
+function formatUserMessage(msg: UserMessage, full: boolean): string {
   const time = formatTime(msg.timestamp);
-  const content = formatUserContent(msg.content);
+  const content = formatUserContent(msg.content, full);
   return `[${time}] USER\n${content}`;
 }
 
 /**
  * Format an assistant message for display
  */
-function formatAssistantMessage(msg: AssistantMessage, toolResults: ToolResultMap): string {
+function formatAssistantMessage(
+  msg: AssistantMessage,
+  toolResults: ToolResultMap,
+  full: boolean
+): string {
   const time = formatTime(msg.timestamp);
   const model = msg.model || 'assistant';
   const tokens = formatTokenUsage(msg.usage);
 
-  const contentParts = msg.content.map((item) => formatContentItem(item, toolResults));
+  const contentParts = msg.content.map((item) => formatContentItem(item, toolResults, full));
   const content = contentParts.join('\n\n');
 
   return `[${time}] ASSISTANT (${model}) ${tokens}\n${content}`;
@@ -321,6 +345,7 @@ export function formatSession(session: Session, options?: SessionFormatOptions):
 
   // Use filtered messages if provided, otherwise use session messages
   const messagesToFormat = options?.messages ?? session.messages;
+  const full = options?.full ?? false;
 
   // Build tool result map for pairing (use all session messages for complete context)
   const toolResults = buildToolResultMap(session.messages);
@@ -353,9 +378,9 @@ export function formatSession(session: Session, options?: SessionFormatOptions):
 
     let formatted: string;
     if (msg.type === 'user') {
-      formatted = formatUserMessage(msg as UserMessage);
+      formatted = formatUserMessage(msg as UserMessage, full);
     } else if (msg.type === 'assistant') {
-      formatted = formatAssistantMessage(msg as AssistantMessage, toolResults);
+      formatted = formatAssistantMessage(msg as AssistantMessage, toolResults, full);
     } else {
       formatted = formatProgressMessage(msg as ProgressMessage);
     }

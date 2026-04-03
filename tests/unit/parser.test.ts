@@ -48,12 +48,11 @@ describe('parseJsonLine', () => {
     expect(result.warning?.error).toBe('Empty line');
   });
 
-  it('should truncate long error content', () => {
-    const longInvalidLine = 'x'.repeat(200);
+  it('should return full trimmed long error content', () => {
+    const longInvalidLine = `  ${'x'.repeat(200)}  `;
     const result = parseJsonLine(longInvalidLine, 1);
 
-    expect(result.warning?.content).toHaveLength(103); // 100 + '...'
-    expect(result.warning?.content).toContain('...');
+    expect(result.warning?.content).toBe('x'.repeat(200));
   });
 });
 

@@ -24,6 +24,7 @@ npm test && npm run lint
 TypeScript 5.x with strict mode enabled: Follow standard conventions
 
 ## Recent Changes
+- 009-full-content-lib: Added TypeScript 5.x with strict mode enabled, running on Node.js 20+ + Commander.js (CLI framework), Node.js built-ins (`fs`, `path`, `readline`)
 - 008-agent-session-linking: Added TypeScript 5.x with strict mode enabled, running on Node.js 20+ + Commander.js (CLI framework), Node.js built-ins (`fs`, `path`, `readline`)
 
 - 007-support-progress-messages: Added TypeScript 5.x with strict mode enabled + Commander.js (CLI framework), Node.js built-ins (`fs`, `path`, `readline`)

@@ -65,7 +65,7 @@ export function parseJsonLine(
       warning: {
         line: lineNumber,
         error: `Invalid JSON: ${errorMessage}`,
-        content: trimmed.length > 100 ? trimmed.slice(0, 100) + '...' : trimmed,
+        content: trimmed,
       },
     };
   }
