@@ -44,6 +44,22 @@ export class DataNotFoundError extends Error {
   }
 }
 
+/**
+ * Error thrown when a bare or prefixed agent ID matches more than one transcript.
+ */
+export class AmbiguousAgentSessionError extends Error {
+  readonly name = 'AmbiguousAgentSessionError' as const;
+  readonly agentId: string;
+  readonly matchingSessionPaths: string[];
+
+  constructor(agentId: string, matchingSessionPaths: string[]) {
+    super(`Agent ID is ambiguous: ${agentId}`);
+    this.agentId = agentId;
+    this.matchingSessionPaths = matchingSessionPaths;
+    Object.setPrototypeOf(this, AmbiguousAgentSessionError.prototype);
+  }
+}
+
 // =============================================================================
 // Type Guards
 // =============================================================================
@@ -67,4 +83,11 @@ export function isWorkspaceNotFoundError(error: unknown): error is WorkspaceNotF
  */
 export function isDataNotFoundError(error: unknown): error is DataNotFoundError {
   return error instanceof DataNotFoundError;
+}
+
+/**
+ * Check if error is an AmbiguousAgentSessionError.
+ */
+export function isAmbiguousAgentSessionError(error: unknown): error is AmbiguousAgentSessionError {
+  return error instanceof AmbiguousAgentSessionError;
 }

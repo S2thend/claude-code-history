@@ -72,8 +72,10 @@ export { VALID_FILTER_TYPES } from './types.js';
 
 export {
   SessionNotFoundError,
+  AmbiguousAgentSessionError,
   WorkspaceNotFoundError,
   DataNotFoundError,
+  isAmbiguousAgentSessionError,
   isSessionNotFoundError,
   isWorkspaceNotFoundError,
   isDataNotFoundError,

@@ -32,6 +32,8 @@ export interface CommandError {
   code: ErrorCode;
   message: string;
   details?: string;
+  type?: 'ambiguous-agent-id' | 'session-not-found';
+  agentId?: string;
 }
 
 /**
@@ -42,7 +44,8 @@ export class CliError extends Error {
     message: string,
     public readonly exitCode: ExitCode,
     public readonly errorCode: ErrorCode,
-    public readonly details?: string
+    public readonly details?: string,
+    public readonly metadata?: Pick<CommandError, 'type' | 'agentId'>
   ) {
     super(message);
     this.name = 'CliError';
@@ -56,6 +59,8 @@ export class CliError extends Error {
       code: this.errorCode,
       message: this.message,
       ...(this.details && { details: this.details }),
+      ...(this.metadata?.type && { type: this.metadata.type }),
+      ...(this.metadata?.agentId && { agentId: this.metadata.agentId }),
     };
   }
 }
@@ -72,6 +77,30 @@ export function usageError(message: string, details?: string): CliError {
  */
 export function notFoundError(message: string, details?: string): CliError {
   return new CliError(message, ExitCode.NOT_FOUND, 'NOT_FOUND', details);
+}
+
+/**
+ * Create a structured not found error for direct agent lookup JSON output.
+ */
+export function lookupNotFoundError(message: string, agentId: string, details?: string): CliError {
+  return new CliError(message, ExitCode.NOT_FOUND, 'NOT_FOUND', details, {
+    type: 'session-not-found',
+    agentId,
+  });
+}
+
+/**
+ * Create an ambiguity error for direct agent lookup JSON output.
+ */
+export function ambiguousLookupError(
+  message: string,
+  agentId: string,
+  details?: string
+): CliError {
+  return new CliError(message, ExitCode.USAGE_ERROR, 'USAGE_ERROR', details, {
+    type: 'ambiguous-agent-id',
+    agentId,
+  });
 }
 
 /**

@@ -110,9 +110,39 @@ Use a main-session raw entry set that includes:
 npm run typecheck
 npm test
 node dist/cli/index.js --data-path <test-data-dir> list --json
-node dist/cli/index.js --data-path <test-data-dir> view nested456 --json
-node dist/cli/index.js --data-path <test-data-dir> view duplicate999 --json
+node dist/cli/index.js --data-path <test-data-dir> view linked123 --json
+node dist/cli/index.js --data-path <test-data-dir> view duplicate777 --json
 ```
+
+## Structured JSON Lookup Errors
+
+Direct agent lookup through `cch view --json` returns structured failures so automation can distinguish duplicate IDs from missing transcripts:
+
+```json
+{
+  "success": false,
+  "error": {
+    "type": "ambiguous-agent-id",
+    "agentId": "duplicate999",
+    "message": "Agent ID is ambiguous: duplicate999"
+  }
+}
+```
+
+```json
+{
+  "success": false,
+  "error": {
+    "type": "session-not-found",
+    "agentId": "missing777",
+    "message": "Session not found: missing777"
+  }
+}
+```
+
+## Platform Caveat
+
+Nested discovery is validated against macOS, Linux, and Windows path layouts, but Claude's encoded project directory naming is still lossy when the original workspace path contains literal hyphens. In those edge cases, decoded workspace paths can normalize hyphens into path separators.
 
 ## Expected Outcomes
 

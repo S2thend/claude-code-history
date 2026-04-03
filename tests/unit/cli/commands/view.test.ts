@@ -12,6 +12,7 @@ vi.mock('../../../../src/lib/index.js', async (importOriginal) => {
   return {
     ...actual,
     getSession: vi.fn(),
+    isAmbiguousAgentSessionError: vi.fn(),
     isSessionNotFoundError: vi.fn(),
     isDataNotFoundError: vi.fn(),
     filterMessages: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock('../../../../src/cli/formatters/pager.js', () => ({
 
 import {
   getSession,
+  isAmbiguousAgentSessionError,
   isSessionNotFoundError,
   isDataNotFoundError,
   filterMessages,
@@ -41,9 +43,16 @@ describe('view command', () => {
 
   const mockSession = {
     id: 'test-session-123',
+    encodedPath: '-test-project',
     projectPath: '/test/project',
+    summary: 'Test session',
     timestamp: new Date('2024-01-15T10:00:00Z'),
+    lastActivityAt: new Date('2024-01-15T10:00:05Z'),
     messageCount: 2,
+    version: '2.0.55',
+    gitBranch: 'main',
+    agentIds: [],
+    unresolvedAgentIds: [],
     messages: [
       {
         type: 'user',
@@ -52,6 +61,8 @@ describe('view command', () => {
         timestamp: new Date('2024-01-15T10:00:00Z'),
         content: 'Hello',
         cwd: '/test',
+        gitBranch: 'main',
+        isSidechain: false,
       },
       {
         type: 'assistant',
@@ -79,6 +90,7 @@ describe('view command', () => {
 
     // Reset mocks
     vi.mocked(getSession).mockReset();
+    vi.mocked(isAmbiguousAgentSessionError).mockReset();
     vi.mocked(isSessionNotFoundError).mockReset();
     vi.mocked(isDataNotFoundError).mockReset();
     vi.mocked(filterMessages).mockReset();
@@ -158,23 +170,25 @@ describe('view command', () => {
   it('should handle SessionNotFoundError', async () => {
     const error = new Error('Session not found');
     vi.mocked(getSession).mockRejectedValue(error);
+    vi.mocked(isAmbiguousAgentSessionError).mockReturnValue(false);
     vi.mocked(isSessionNotFoundError).mockReturnValue(true);
     vi.mocked(isDataNotFoundError).mockReturnValue(false);
 
     await program.parseAsync(['node', 'test', 'view', '999']);
 
-    expect(processExitSpy).toHaveBeenCalledWith(1);
+    expect(processExitSpy).toHaveBeenCalledWith(3);
   });
 
   it('should handle DataNotFoundError', async () => {
     const error = new Error('Data not found');
     vi.mocked(getSession).mockRejectedValue(error);
+    vi.mocked(isAmbiguousAgentSessionError).mockReturnValue(false);
     vi.mocked(isSessionNotFoundError).mockReturnValue(false);
     vi.mocked(isDataNotFoundError).mockReturnValue(true);
 
     await program.parseAsync(['node', 'test', 'view', '0']);
 
-    expect(processExitSpy).toHaveBeenCalledWith(1);
+    expect(processExitSpy).toHaveBeenCalledWith(4);
   });
 
   it('should reject invalid filter type', async () => {
@@ -226,5 +240,37 @@ describe('view command', () => {
       mockSession.messages,
       expect.objectContaining({ only: ['progress'] })
     );
+  });
+
+  it('should emit structured JSON for ambiguous direct agent lookups', async () => {
+    const error = new Error('Agent ID is ambiguous: dupagent777');
+    vi.mocked(getSession).mockRejectedValue(error);
+    vi.mocked(isAmbiguousAgentSessionError).mockReturnValue(true);
+    vi.mocked(isSessionNotFoundError).mockReturnValue(false);
+    vi.mocked(isDataNotFoundError).mockReturnValue(false);
+
+    await program.parseAsync(['node', 'test', 'view', 'dupagent777', '--json']);
+
+    const output = String(stdoutSpy.mock.calls[0]?.[0] ?? '');
+    const json = JSON.parse(output);
+    expect(json.success).toBe(false);
+    expect(json.error.type).toBe('ambiguous-agent-id');
+    expect(json.error.agentId).toBe('dupagent777');
+  });
+
+  it('should emit structured JSON for missing direct agent lookups', async () => {
+    const error = new Error('Session not found');
+    vi.mocked(getSession).mockRejectedValue(error);
+    vi.mocked(isAmbiguousAgentSessionError).mockReturnValue(false);
+    vi.mocked(isSessionNotFoundError).mockReturnValue(true);
+    vi.mocked(isDataNotFoundError).mockReturnValue(false);
+
+    await program.parseAsync(['node', 'test', 'view', 'missing456', '--json']);
+
+    const output = String(stdoutSpy.mock.calls[0]?.[0] ?? '');
+    const json = JSON.parse(output);
+    expect(json.success).toBe(false);
+    expect(json.error.type).toBe('session-not-found');
+    expect(json.error.agentId).toBe('missing456');
   });
 });

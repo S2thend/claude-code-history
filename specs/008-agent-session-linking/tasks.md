@@ -23,8 +23,8 @@
 
 **Purpose**: Prepare reusable synthetic, anonymized contract, and scale fixtures that all stories can share.
 
-- [ ] T001 Create reusable nested-agent, missing-reference, and conflict JSONL fixtures in `tests/fixtures/nested-main-session.jsonl`, `tests/fixtures/nested-agent-session.jsonl`, and `tests/fixtures/nested-agent-conflict-session.jsonl`
-- [ ] T002 [P] Add anonymized Claude contract fixtures and 100+-session performance fixtures in `tests/fixtures/contracts/claude-main-session.jsonl`, `tests/fixtures/contracts/claude-main-session/subagents/agent-linked.jsonl`, `tests/fixtures/performance/perf-main-session-001.jsonl`, and `tests/fixtures/performance/perf-main-session-101.jsonl`
+- [X] T001 Create reusable nested-agent, missing-reference, and conflict JSONL fixtures in `tests/fixtures/nested-main-session.jsonl`, `tests/fixtures/nested-agent-session.jsonl`, and `tests/fixtures/nested-agent-conflict-session.jsonl`
+- [X] T002 [P] Add anonymized Claude contract fixtures and 100+-session performance fixtures in `tests/fixtures/contracts/claude-main-session.jsonl`, `tests/fixtures/contracts/claude-main-session/subagents/agent-linked.jsonl`, `tests/fixtures/performance/perf-main-session-001.jsonl`, and `tests/fixtures/performance/perf-main-session-101.jsonl`
 
 ---
 
@@ -34,15 +34,15 @@
 
 **⚠️ CRITICAL**: No user story work should begin until this phase is complete.
 
-- [ ] T003 [P] Add `unresolvedAgentIds` summary/session metadata definitions in `src/lib/types.ts`
-- [ ] T004 [P] Add `AmbiguousAgentSessionError` and `isAmbiguousAgentSessionError` in `src/lib/errors.ts`
-- [ ] T005 [P] Add recursive session-file discovery helpers and macOS/Linux/Windows nested-owner path parsing in `src/lib/platform.ts`
-- [ ] T006 [P] Add explicit agent-reference extraction helpers for raw main-session entries in `src/lib/parser.ts`
-- [ ] T007 Implement shared `SessionInfo` discovery context and link-resolution scaffolding in `src/lib/session.ts`
-- [ ] T008 Re-export unresolved-link metadata and ambiguity helpers in `src/lib/index.ts`
-- [ ] T009 Add cross-platform flat and nested path coverage for macOS, Linux, and Windows variants in `tests/unit/platform.test.ts`
-- [ ] T010 Add foundational raw-reference and shared-resolution coverage in `tests/unit/parser.test.ts` and `tests/unit/session.test.ts`
-- [ ] T011 Add anonymized Claude JSONL contract parsing and linkage coverage in `tests/integration/contract/claude-session-contract.test.ts`
+- [X] T003 [P] Add `unresolvedAgentIds` summary/session metadata definitions in `src/lib/types.ts`
+- [X] T004 [P] Add `AmbiguousAgentSessionError` and `isAmbiguousAgentSessionError` in `src/lib/errors.ts`
+- [X] T005 [P] Add recursive session-file discovery helpers and macOS/Linux/Windows nested-owner path parsing in `src/lib/platform.ts`
+- [X] T006 [P] Add explicit agent-reference extraction helpers for raw main-session entries in `src/lib/parser.ts`
+- [X] T007 Implement shared `SessionInfo` discovery context and link-resolution scaffolding in `src/lib/session.ts`
+- [X] T008 Re-export unresolved-link metadata and ambiguity helpers in `src/lib/index.ts`
+- [X] T009 Add cross-platform flat and nested path coverage for macOS, Linux, and Windows variants in `tests/unit/platform.test.ts`
+- [X] T010 Add foundational raw-reference and shared-resolution coverage in `tests/unit/parser.test.ts` and `tests/unit/session.test.ts`
+- [X] T011 Add anonymized Claude JSONL contract parsing and linkage coverage in `tests/integration/contract/claude-session-contract.test.ts`
 
 **Checkpoint**: Recursive discovery inputs, additive metadata, and ambiguity primitives are ready for story work.
 
@@ -56,9 +56,9 @@
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] Replace project-wide agent guessing with explicit-reference-first per-session link resolution in `src/lib/session.ts`
-- [ ] T013 [P] [US1] Add main-session retrieval coverage for nested, unresolved, fallback, and conflicting links in `tests/integration/get-session.test.ts`
-- [ ] T014 [P] [US1] Add list-session coverage for true-child-only linking and unresolved references in `tests/integration/list-sessions.test.ts`
+- [X] T012 [US1] Replace project-wide agent guessing with explicit-reference-first per-session link resolution in `src/lib/session.ts`
+- [X] T013 [P] [US1] Add main-session retrieval coverage for nested, unresolved, fallback, and conflicting links in `tests/integration/get-session.test.ts`
+- [X] T014 [P] [US1] Add list-session coverage for true-child-only linking and unresolved references in `tests/integration/list-sessions.test.ts`
 
 **Checkpoint**: User Story 1 is complete when main-session metadata is accurate and independently testable through library list/retrieval flows.
 
@@ -72,10 +72,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T015 [US2] Extend `getSession()` and `getAgentSession()` to resolve bare and prefixed agent IDs with ambiguity detection in `src/lib/session.ts`
-- [ ] T016 [P] [US2] Implement structured JSON ambiguity/not-found responses and accepted agent identifier forms in `src/cli/commands/view.ts` and `src/cli/utils/config.ts`
-- [ ] T017 [P] [US2] Add library lookup coverage for unique, missing, and duplicate agent IDs in `tests/integration/get-session.test.ts`
-- [ ] T018 [P] [US2] Add CLI view coverage for direct agent lookup, JSON error payloads, and ambiguity messaging in `tests/integration/cli/view.test.ts` and `tests/unit/cli/commands/view.test.ts`
+- [X] T015 [US2] Extend `getSession()` and `getAgentSession()` to resolve bare and prefixed agent IDs with ambiguity detection in `src/lib/session.ts`
+- [X] T016 [P] [US2] Implement structured JSON ambiguity/not-found responses and accepted agent identifier forms in `src/cli/commands/view.ts` and `src/cli/utils/config.ts`
+- [X] T017 [P] [US2] Add library lookup coverage for unique, missing, and duplicate agent IDs in `tests/integration/get-session.test.ts`
+- [X] T018 [P] [US2] Add CLI view coverage for direct agent lookup, JSON error payloads, and ambiguity messaging in `tests/integration/cli/view.test.ts` and `tests/unit/cli/commands/view.test.ts`
 
 **Checkpoint**: User Story 2 is complete when exported linked agent IDs are directly usable in follow-up library and CLI lookups.
 
@@ -89,10 +89,10 @@
 
 ### Implementation for User Story 3
 
-- [ ] T019 [P] [US3] Surface linked and unresolved agent metadata in human-readable session detail output in `src/cli/formatters/session.ts`
-- [ ] T020 [P] [US3] Preserve linked and unresolved agent metadata in JSON and Markdown export headers in `src/lib/export.ts`
-- [ ] T021 [US3] Keep `cch list` human-readable rows main-session-only while exposing additive summary fields in `src/cli/formatters/table.ts`
-- [ ] T022 [P] [US3] Add formatter, list, and export round-trip re-import coverage for main-session-only output and linked/unresolved metadata in `tests/unit/cli/formatters/session.test.ts`, `tests/integration/cli/list.test.ts`, and `tests/integration/export-sessions.test.ts`
+- [X] T019 [P] [US3] Surface linked and unresolved agent metadata in human-readable session detail output in `src/cli/formatters/session.ts`
+- [X] T020 [P] [US3] Preserve linked and unresolved agent metadata in JSON and Markdown export headers in `src/lib/export.ts`
+- [X] T021 [US3] Keep `cch list` human-readable rows main-session-only while exposing additive summary fields in `src/cli/formatters/table.ts`
+- [X] T022 [P] [US3] Add formatter, list, and export round-trip re-import coverage for main-session-only output and linked/unresolved metadata in `tests/unit/cli/formatters/session.test.ts`, `tests/integration/cli/list.test.ts`, and `tests/integration/export-sessions.test.ts`
 
 **Checkpoint**: User Story 3 is complete when navigation metadata is visible without promoting agent transcripts to top-level list rows.
 
@@ -102,10 +102,10 @@
 
 **Purpose**: Lock in backward compatibility, documentation, and end-to-end verification.
 
-- [ ] T023 [P] Add legacy flat-agent regression coverage across `tests/unit/session.test.ts`, `tests/integration/get-session.test.ts`, and `tests/integration/list-sessions.test.ts`
-- [ ] T024 [P] Add repeatable 100+-session performance validation for `listSessions()`, `getSession()`, and `cch view` in `tests/integration/performance/session-lookup.test.ts`
-- [ ] T025 [P] Update linked-agent lookup examples, structured JSON error behavior, and platform-specific caveats in `README.md` and `specs/008-agent-session-linking/quickstart.md`
-- [ ] T026 Run the verification steps documented in `specs/008-agent-session-linking/quickstart.md`
+- [X] T023 [P] Add legacy flat-agent regression coverage across `tests/unit/session.test.ts`, `tests/integration/get-session.test.ts`, and `tests/integration/list-sessions.test.ts`
+- [X] T024 [P] Add repeatable 100+-session performance validation for `listSessions()`, `getSession()`, and `cch view` in `tests/integration/performance/session-lookup.test.ts`
+- [X] T025 [P] Update linked-agent lookup examples, structured JSON error behavior, and platform-specific caveats in `README.md` and `specs/008-agent-session-linking/quickstart.md`
+- [X] T026 Run the verification steps documented in `specs/008-agent-session-linking/quickstart.md`
 
 ---
 

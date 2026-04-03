@@ -14,6 +14,12 @@ import {
   exportSession,
   exportAllSessions,
 } from '../../src/lib/export.js';
+import {
+  cleanupTempClaudeData,
+  createTempClaudeData,
+  readFixture,
+  writeProjectSessionFile,
+} from '../helpers/agent-linking.js';
 
 function createLargeExportSessionId(index: number): string {
   return `cccccccc-dddd-eeee-ffff-${(index + 1).toString(16).padStart(12, '0')}`;
@@ -239,13 +245,13 @@ describe('export functions', () => {
       expect(markdown).toContain('function identity');
     });
 
-    it('should include agent sessions if available', async () => {
+    it('should not link unrelated flat agent sessions by project co-location alone', async () => {
       const markdown = await exportSessionToMarkdown(sessionUuid3, {
         dataPath: testDataPath,
       });
 
-      expect(markdown).toContain('| Agent Sessions |');
-      expect(markdown).toContain('abc123');
+      expect(markdown).not.toContain('| Agent Sessions |');
+      expect(markdown).not.toContain('abc123');
     });
 
     it('should render progress messages and metadata in markdown export', async () => {
@@ -387,5 +393,60 @@ describe('export all unlimited behavior', () => {
 
     expect(markdown).toContain(`# ${finalSummary}`);
     expect(markdown.match(/^# Bulk export session /gm)).toHaveLength(totalSessions);
+  });
+});
+
+describe('export round-trip agent metadata', () => {
+  let testDataPath = '';
+
+  beforeAll(async () => {
+    const tempData = await createTempClaudeData('claude-export-linking-');
+    testDataPath = tempData.dataPath;
+
+    await writeProjectSessionFile(
+      tempData.projectsPath,
+      '-tmp-agent-linking',
+      '11111111-1111-1111-1111-111111111111.jsonl',
+      await readFixture('nested-main-session.jsonl')
+    );
+    await writeProjectSessionFile(
+      tempData.projectsPath,
+      '-tmp-agent-linking',
+      '11111111-1111-1111-1111-111111111111/subagents/agent-linked123.jsonl',
+      await readFixture('nested-agent-session.jsonl')
+    );
+  });
+
+  afterAll(async () => {
+    await cleanupTempClaudeData(testDataPath);
+  });
+
+  it('should preserve linked and unresolved agent metadata in JSON export round-trips', async () => {
+    const json = await exportSessionToJson('11111111-1111-1111-1111-111111111111', {
+      dataPath: testDataPath,
+    });
+    const session = JSON.parse(json) as {
+      agentIds: string[];
+      unresolvedAgentIds: string[];
+    };
+
+    expect(session.agentIds).toEqual(['linked123']);
+    expect(session.unresolvedAgentIds).toEqual(['missing456']);
+
+    const roundTripped = JSON.parse(JSON.stringify(session)) as {
+      agentIds: string[];
+      unresolvedAgentIds: string[];
+    };
+    expect(roundTripped.agentIds).toEqual(['linked123']);
+    expect(roundTripped.unresolvedAgentIds).toEqual(['missing456']);
+  });
+
+  it('should surface unresolved agent references in Markdown export metadata', async () => {
+    const markdown = await exportSessionToMarkdown('11111111-1111-1111-1111-111111111111', {
+      dataPath: testDataPath,
+    });
+
+    expect(markdown).toContain('| Agent Sessions | linked123 |');
+    expect(markdown).toContain('| Unresolved Agent References | missing456 |');
   });
 });

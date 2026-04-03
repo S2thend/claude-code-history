@@ -25,6 +25,8 @@ function createTestSession(overrides?: Partial<Session>): Session {
     projectPath: '/Users/dev/test-project',
     timestamp: new Date('2024-01-15T10:30:00Z'),
     messageCount: 2,
+    agentIds: [],
+    unresolvedAgentIds: [],
     messages: [
       {
         type: 'user',
@@ -111,6 +113,20 @@ describe('formatSession', () => {
 
     expect(output).toContain('Branch:');
     expect(output).toContain('feature/new-feature');
+  });
+
+  it('should include linked agent IDs when present', () => {
+    const session = createTestSession({ agentIds: ['linked123'] });
+    const output = formatSession(session);
+
+    expect(output).toContain('Linked Agent Sessions: linked123');
+  });
+
+  it('should include unresolved agent references when present', () => {
+    const session = createTestSession({ unresolvedAgentIds: ['missing456'] });
+    const output = formatSession(session);
+
+    expect(output).toContain('Unresolved Agent References: missing456');
   });
 
   it('should format user messages with USER label', () => {

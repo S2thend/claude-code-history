@@ -7,7 +7,17 @@ import { mkdir, writeFile, rm } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { getSession, getAgentSession } from '../../src/lib/session.js';
-import { SessionNotFoundError, DataNotFoundError } from '../../src/lib/errors.js';
+import {
+  AmbiguousAgentSessionError,
+  SessionNotFoundError,
+  DataNotFoundError,
+} from '../../src/lib/errors.js';
+import {
+  createTempClaudeData,
+  cleanupTempClaudeData,
+  readFixture,
+  writeProjectSessionFile,
+} from '../helpers/agent-linking.js';
 
 describe('getSession', () => {
   const testDataPath = join(tmpdir(), `claude-get-test-${Date.now()}`);
@@ -248,6 +258,188 @@ describe('getAgentSession', () => {
   it('should throw SessionNotFoundError for non-existent agent', async () => {
     await expect(getAgentSession('nonexistent', { dataPath: testDataPath })).rejects.toThrow(
       SessionNotFoundError
+    );
+  });
+});
+
+describe('nested agent linking scenarios', () => {
+  let testDataPath = '';
+  const encodedProjectPath = '-tmp-agent-linking';
+
+  beforeAll(async () => {
+    const tempData = await createTempClaudeData('claude-agent-linking-');
+    testDataPath = tempData.dataPath;
+
+    const nestedMain = await readFixture('nested-main-session.jsonl');
+    const nestedAgent = await readFixture('nested-agent-session.jsonl');
+    const nestedConflictAgent = await readFixture('nested-agent-conflict-session.jsonl');
+
+    await writeProjectSessionFile(
+      tempData.projectsPath,
+      encodedProjectPath,
+      '11111111-1111-1111-1111-111111111111.jsonl',
+      nestedMain
+    );
+    await writeProjectSessionFile(
+      tempData.projectsPath,
+      encodedProjectPath,
+      '11111111-1111-1111-1111-111111111111/subagents/agent-linked123.jsonl',
+      nestedAgent
+    );
+
+    const fallbackMain = [
+      '{"type":"summary","summary":"Fallback-only parent","leafUuid":"fallback-msg-002"}',
+      '{"type":"user","uuid":"fallback-msg-001","parentUuid":null,"timestamp":"2026-04-02T12:00:00.000Z","sessionId":"22222222-2222-2222-2222-222222222222","cwd":"/tmp/agent-linking","gitBranch":"main","version":"2.0.55","isSidechain":false,"message":{"role":"user","content":"Fallback-only session"}}',
+      '{"type":"assistant","uuid":"fallback-msg-002","parentUuid":"fallback-msg-001","timestamp":"2026-04-02T12:00:10.000Z","sessionId":"22222222-2222-2222-2222-222222222222","message":{"model":"claude-opus-4-5-20251101","role":"assistant","content":[{"type":"text","text":"No explicit agent reference here."}],"stop_reason":"end_turn","usage":{"input_tokens":10,"output_tokens":12,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}',
+    ].join('\n');
+
+    const fallbackAgent = [
+      '{"type":"summary","summary":"Fallback nested agent","leafUuid":"fallback-agent-002"}',
+      '{"type":"user","uuid":"fallback-agent-001","parentUuid":null,"timestamp":"2026-04-02T12:00:11.000Z","sessionId":"22222222-2222-2222-2222-222222222222","agentId":"fallback789","cwd":"/tmp/agent-linking","gitBranch":"main","version":"2.0.55","isSidechain":true,"message":{"role":"user","content":"Fallback nested agent"}}',
+      '{"type":"assistant","uuid":"fallback-agent-002","parentUuid":"fallback-agent-001","timestamp":"2026-04-02T12:00:20.000Z","sessionId":"22222222-2222-2222-2222-222222222222","agentId":"fallback789","message":{"model":"claude-haiku-4-5-20251001","role":"assistant","content":[{"type":"text","text":"Fallback linked agent."}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":6,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}',
+    ].join('\n');
+
+    const explicitConflictMain = [
+      '{"type":"summary","summary":"Explicit conflict parent","leafUuid":"conflict-main-002"}',
+      '{"type":"assistant","uuid":"conflict-main-001","parentUuid":null,"timestamp":"2026-04-02T13:00:00.000Z","sessionId":"33333333-3333-3333-3333-333333333333","message":{"model":"claude-opus-4-5-20251101","role":"assistant","content":[{"type":"tool_use","id":"toolu_conflict","name":"Agent","input":{"description":"Conflict agent","prompt":"Conflict agent","subagent_type":"Explore"}}],"stop_reason":"tool_use","usage":{"input_tokens":20,"output_tokens":5,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}',
+      '{"type":"user","uuid":"conflict-main-002","parentUuid":"conflict-main-001","timestamp":"2026-04-02T13:00:05.000Z","sessionId":"33333333-3333-3333-3333-333333333333","cwd":"/tmp/agent-linking","gitBranch":"main","isSidechain":false,"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_conflict","content":"Explicit conflict agent."}]},"toolUseResult":{"status":"completed","agentId":"conflict999","content":[{"type":"text","text":"Explicit conflict agent."}]}}',
+    ].join('\n');
+
+    const conflictingNestedOwnerMain = [
+      '{"type":"summary","summary":"Nested owner without explicit reference","leafUuid":"conflict-owner-002"}',
+      '{"type":"user","uuid":"conflict-owner-001","parentUuid":null,"timestamp":"2026-04-02T13:00:10.000Z","sessionId":"44444444-4444-4444-4444-444444444444","cwd":"/tmp/agent-linking","gitBranch":"main","version":"2.0.55","isSidechain":false,"message":{"role":"user","content":"Owner by path only"}}',
+      '{"type":"assistant","uuid":"conflict-owner-002","parentUuid":"conflict-owner-001","timestamp":"2026-04-02T13:00:20.000Z","sessionId":"44444444-4444-4444-4444-444444444444","message":{"model":"claude-opus-4-5-20251101","role":"assistant","content":[{"type":"text","text":"Path-only owner."}],"stop_reason":"end_turn","usage":{"input_tokens":8,"output_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}',
+    ].join('\n');
+
+    await writeProjectSessionFile(
+      tempData.projectsPath,
+      encodedProjectPath,
+      '22222222-2222-2222-2222-222222222222.jsonl',
+      fallbackMain
+    );
+    await writeProjectSessionFile(
+      tempData.projectsPath,
+      encodedProjectPath,
+      '22222222-2222-2222-2222-222222222222/subagents/agent-fallback789.jsonl',
+      fallbackAgent
+    );
+    await writeProjectSessionFile(
+      tempData.projectsPath,
+      encodedProjectPath,
+      '33333333-3333-3333-3333-333333333333.jsonl',
+      explicitConflictMain
+    );
+    await writeProjectSessionFile(
+      tempData.projectsPath,
+      encodedProjectPath,
+      '44444444-4444-4444-4444-444444444444.jsonl',
+      conflictingNestedOwnerMain
+    );
+    await writeProjectSessionFile(
+      tempData.projectsPath,
+      encodedProjectPath,
+      '44444444-4444-4444-4444-444444444444/subagents/agent-conflict999.jsonl',
+      nestedConflictAgent.replaceAll(
+        '22222222-2222-2222-2222-222222222222',
+        '44444444-4444-4444-4444-444444444444'
+      )
+    );
+
+    const duplicateProjectA = '-tmp-duplicate-a';
+    const duplicateProjectB = '-tmp-duplicate-b';
+    const duplicateMainA = [
+      '{"type":"summary","summary":"Duplicate parent A","leafUuid":"dup-a-002"}',
+      '{"type":"user","uuid":"dup-a-001","parentUuid":null,"timestamp":"2026-04-02T14:00:00.000Z","sessionId":"55555555-5555-5555-5555-555555555555","cwd":"/tmp/duplicate-a","gitBranch":"main","version":"2.0.55","isSidechain":false,"message":{"role":"user","content":"Duplicate A"}}',
+      '{"type":"assistant","uuid":"dup-a-002","parentUuid":"dup-a-001","timestamp":"2026-04-02T14:00:05.000Z","sessionId":"55555555-5555-5555-5555-555555555555","message":{"model":"claude-opus-4-5-20251101","role":"assistant","content":[{"type":"text","text":"Duplicate A done."}],"stop_reason":"end_turn","usage":{"input_tokens":4,"output_tokens":5,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}',
+    ].join('\n');
+    const duplicateMainB = duplicateMainA
+      .replaceAll('55555555-5555-5555-5555-555555555555', '66666666-6666-6666-6666-666666666666')
+      .replaceAll('/tmp/duplicate-a', '/tmp/duplicate-b')
+      .replaceAll('Duplicate A', 'Duplicate B');
+    const duplicateAgent = (sessionId: string, projectPath: string): string =>
+      [
+        '{"type":"summary","summary":"Duplicate agent session","leafUuid":"dup-agent-002"}',
+        `{"type":"user","uuid":"dup-agent-001","parentUuid":null,"timestamp":"2026-04-02T14:00:06.000Z","sessionId":"${sessionId}","agentId":"duplicate777","cwd":"${projectPath}","gitBranch":"main","version":"2.0.55","isSidechain":true,"message":{"role":"user","content":"Duplicate agent"}}`,
+        `{"type":"assistant","uuid":"dup-agent-002","parentUuid":"dup-agent-001","timestamp":"2026-04-02T14:00:10.000Z","sessionId":"${sessionId}","agentId":"duplicate777","message":{"model":"claude-haiku-4-5-20251001","role":"assistant","content":[{"type":"text","text":"Duplicate agent response"}],"stop_reason":"end_turn","usage":{"input_tokens":2,"output_tokens":3,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}`,
+      ].join('\n');
+
+    await writeProjectSessionFile(
+      tempData.projectsPath,
+      duplicateProjectA,
+      '55555555-5555-5555-5555-555555555555.jsonl',
+      duplicateMainA
+    );
+    await writeProjectSessionFile(
+      tempData.projectsPath,
+      duplicateProjectA,
+      '55555555-5555-5555-5555-555555555555/subagents/agent-duplicate777.jsonl',
+      duplicateAgent('55555555-5555-5555-5555-555555555555', '/tmp/duplicate-a')
+    );
+    await writeProjectSessionFile(
+      tempData.projectsPath,
+      duplicateProjectB,
+      '66666666-6666-6666-6666-666666666666.jsonl',
+      duplicateMainB
+    );
+    await writeProjectSessionFile(
+      tempData.projectsPath,
+      duplicateProjectB,
+      '66666666-6666-6666-6666-666666666666/subagents/agent-duplicate777.jsonl',
+      duplicateAgent('66666666-6666-6666-6666-666666666666', '/tmp/duplicate-b')
+    );
+  });
+
+  afterAll(async () => {
+    await cleanupTempClaudeData(testDataPath);
+  });
+
+  it('should return discoverable and unresolved agent IDs separately', async () => {
+    const session = await getSession('11111111-1111-1111-1111-111111111111', {
+      dataPath: testDataPath,
+    });
+
+    expect(session.agentIds).toEqual(['linked123']);
+    expect(session.unresolvedAgentIds).toEqual(['missing456']);
+  });
+
+  it('should fall back to nested ownership when explicit agent references are missing', async () => {
+    const session = await getSession('22222222-2222-2222-2222-222222222222', {
+      dataPath: testDataPath,
+    });
+
+    expect(session.agentIds).toEqual(['fallback789']);
+    expect(session.unresolvedAgentIds).toEqual([]);
+  });
+
+  it('should prefer explicit references over conflicting nested ownership', async () => {
+    const explicitSession = await getSession('33333333-3333-3333-3333-333333333333', {
+      dataPath: testDataPath,
+    });
+    const nestedOwnerSession = await getSession('44444444-4444-4444-4444-444444444444', {
+      dataPath: testDataPath,
+    });
+
+    expect(explicitSession.agentIds).toContain('conflict999');
+    expect(nestedOwnerSession.agentIds).not.toContain('conflict999');
+  });
+
+  it('should resolve direct agent lookup from bare and prefixed IDs', async () => {
+    const bareLookup = await getSession('linked123', { dataPath: testDataPath });
+    const prefixedLookup = await getAgentSession('agent-linked123', { dataPath: testDataPath });
+
+    expect(bareLookup.id).toBe('agent-linked123');
+    expect(prefixedLookup.id).toBe('agent-linked123');
+  });
+
+  it('should report missing direct agent lookups as not found', async () => {
+    await expect(getSession('missing456', { dataPath: testDataPath })).rejects.toThrow(
+      SessionNotFoundError
+    );
+  });
+
+  it('should report duplicate bare agent lookups as ambiguous', async () => {
+    await expect(getSession('duplicate777', { dataPath: testDataPath })).rejects.toThrow(
+      AmbiguousAgentSessionError
     );
   });
 });

@@ -294,6 +294,14 @@ function formatSessionHeader(session: Session, options?: SessionFormatOptions): 
     lines.push(`Summary: ${session.summary}`);
   }
 
+  if (session.agentIds.length > 0) {
+    lines.push(`Linked Agent Sessions: ${session.agentIds.join(', ')}`);
+  }
+
+  if (session.unresolvedAgentIds.length > 0) {
+    lines.push(`Unresolved Agent References: ${session.unresolvedAgentIds.join(', ')}`);
+  }
+
   return lines.join('\n');
 }
 
