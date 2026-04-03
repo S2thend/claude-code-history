@@ -17,8 +17,8 @@ Compact listing record for one main session or one directly requested agent sess
 - `timestamp: Date` - Earliest user/assistant/progress message timestamp, falling back to file mtime when absent.
 - `lastActivityAt: Date` - Latest user/assistant/progress message timestamp, falling back to file mtime when absent.
 - `messageCount: number` - Count of user, assistant, and progress messages only.
-- `agentIds: string[]` - Discoverable linked child-agent IDs for main sessions.
-- `unresolvedAgentIds: string[]` - Referenced child-agent IDs whose transcripts are not discoverable.
+- `agentIds: string[]` - Discoverable linked child-agent IDs for main sessions; empty for agent-session rows.
+- `unresolvedAgentIds: string[]` - Referenced child-agent IDs whose transcripts are not discoverable; empty for agent-session rows.
 
 ### Validation Rules
 
@@ -26,6 +26,7 @@ Compact listing record for one main session or one directly requested agent sess
 - `preview` must be `null` when no user-authored string message exists.
 - `agentIds` and `unresolvedAgentIds` must be unique and sorted, and a given agent ID must not appear in both arrays for the same session.
 - Existing `summary` semantics remain unchanged; fallback text must not overwrite authored titles.
+- Top-level summary listing must include both main-session and agent-session rows.
 
 ## Entity: Session Detail
 

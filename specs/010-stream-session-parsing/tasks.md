@@ -5,7 +5,7 @@
 
 **Tests**: Regression tests are required by `FR-008`, `SC-001`, `SC-002`, and the library/CLI contracts. Add tests first in each story phase and verify they fail before implementing the story code.
 
-**Organization**: Tasks are grouped by user story in spec priority order (`US1`, `US2`, `US3`) so the memory-safe listing MVP can land first and later stories can be validated independently.
+**Organization**: Tasks are grouped by user story in spec priority order (`US1`, `US2`, `US3`) so the memory-safe listing MVP can land first and later stories can be validated independently. This branch intentionally keeps the generated name `010-stream-session-parsing` as a documented exception to the constitution's `<type>/<short-description>` convention.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -47,21 +47,21 @@
 
 ## Phase 3: User Story 1 - List large session histories without memory failures (Priority: P1) MVP
 
-**Goal**: `listSessions()` returns compact summaries, preview fallback text, timestamps, message counts, and agent links without OOM or whole-session raw-entry retention.
+**Goal**: `listSessions()` returns compact top-level summaries for both main and agent sessions, preview fallback text, timestamps, message counts, and main-session agent links without OOM or whole-session raw-entry retention.
 
-**Independent Test**: Run `listSessions()` on a fixture with many large transcripts and verify one summary per main session, preview values for untitled sessions, preserved agent links, and peak memory at or below 512 MiB.
+**Independent Test**: Run `listSessions()` on a fixture with many large main and agent transcripts and verify one top-level summary per discoverable session, preview values for untitled sessions, preserved main-session agent links, and peak memory at or below 512 MiB.
 
 ### Tests for User Story 1
 
-- [ ] T008 [P] [US1] Add failing `listSessions()` integration tests for untitled-session `preview`, agent link metadata, malformed-line recovery, and title/preview precedence in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/list-sessions.test.ts`
+- [ ] T008 [P] [US1] Add failing `listSessions()` integration tests for top-level agent-session rows, untitled-session `preview`, agent link metadata, malformed-line recovery, and title/preview precedence in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/list-sessions.test.ts`
 - [ ] T009 [P] [US1] Add a failing 1,000-session performance regression test that asserts `listSessions()` peak memory stays at or below 512 MiB while preserving summary rows in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/performance/session-lookup.test.ts`
 
 ### Implementation for User Story 1
 
 - [ ] T010 [US1] Implement one-pass summary/link parsing that derives `summary`, bounded `preview`, timestamps, message counts, branch/version metadata, and explicit agent IDs without `RawSessionEntry[]` accumulation in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/parser.ts`
-- [ ] T011 [US1] Rewire `analyzeMainSessions()`, `buildSessionSummary()`, and `listSessions()` to consume the one-pass summary parser and populate `SessionSummary.preview` while preserving pagination, sorting, workspace filtering, and agent-link resolution in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/session.ts`
+- [ ] T011 [US1] Rewire `analyzeMainSessions()`, `buildSessionSummary()`, and `listSessions()` to consume the one-pass summary parser, return top-level rows for both main and agent sessions, and populate `SessionSummary.preview` while preserving pagination, sorting, workspace filtering, and main-session agent-link resolution in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/session.ts`
 
-**Checkpoint**: `US1` is complete when summary listing remains read-only, preview-aware, and under the 512 MiB large-fixture ceiling.
+**Checkpoint**: `US1` is complete when summary listing includes main and agent rows, remains read-only, is preview-aware, and stays under the 512 MiB large-fixture ceiling.
 
 ---
 
@@ -89,17 +89,18 @@
 
 **Goal**: Summary rows expose enough fallback text for listing UIs and JSON consumers to render untitled sessions without opening every full session.
 
-**Independent Test**: Render a mixed titled/untitled listing from summary data only and verify untitled rows use `preview`, titled rows still prefer `summary`, no-title/no-preview rows show `(No summary)`, and JSON rows include `preview`.
+**Independent Test**: Render a mixed titled/untitled main+agent listing from summary data only and verify untitled rows use `preview` capped at 200 characters, titled rows still prefer `summary`, no-title/no-preview rows show `(No summary)`, and JSON rows include `preview`.
 
 ### Tests for User Story 3
 
-- [ ] T016 [P] [US3] Add failing formatter unit tests for `summary ?? preview ?? '(No summary)'` fallback behavior in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/unit/cli/formatters/table.test.ts`
-- [ ] T017 [P] [US3] Add failing `cch list --json` and human-readable CLI integration tests proving `preview` is present and untitled rows do not require fallback `getSession()` reads when `--stats` is not used in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/cli/list.test.ts`
+- [ ] T016 [P] [US3] Add failing formatter unit tests for `summary ?? preview ?? '(No summary)'` fallback behavior and 200-character preview display truncation in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/unit/cli/formatters/table.test.ts`
+- [ ] T017 [P] [US3] Add failing `cch list --json` and human-readable CLI integration tests proving `preview` is present, `(No summary)` is used when no title/preview exists, top-level agent rows are listed, and untitled rows do not require fallback `getSession()` reads when `--stats` is not used in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/cli/list.test.ts`
+- [ ] T018 [US3] Add a failing baseline-vs-new regression test that compares fallback detail-fetch counts on the same untitled-session fixture and asserts at least 90% reduction in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/cli/list.test.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T018 [US3] Render `summary`, then `preview`, then `(No summary)` in `getDisplaySummary()` while keeping table truncation display-only in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/cli/formatters/table.ts`
-- [ ] T019 [US3] Preserve summary-only `cch list` execution when `--stats` is absent and avoid introducing any untitled-session fallback `getSession()` reads in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/cli/commands/list.ts`
+- [ ] T019 [US3] Render `summary`, then `preview`, then `(No summary)` in `getDisplaySummary()` while keeping table truncation display-only in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/cli/formatters/table.ts`
+- [ ] T020 [US3] Preserve summary-only `cch list` execution when `--stats` is absent, include top-level agent rows from the library response, and avoid introducing any untitled-session fallback `getSession()` reads in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/cli/commands/list.ts`
 
 **Checkpoint**: `US3` is complete when listing output and JSON summaries provide fallback preview text without per-row detail fetches.
 
@@ -109,9 +110,9 @@
 
 **Purpose**: Finalize docs, audit for leftover full-array parsing, and run the full validation suite.
 
-- [ ] T020 [P] Update `/Users/borui/Devs/vibe-coding-history/claude-code-history/specs/010-stream-session-parsing/quickstart.md`, `/Users/borui/Devs/vibe-coding-history/claude-code-history/specs/010-stream-session-parsing/contracts/library-api.md`, and `/Users/borui/Devs/vibe-coding-history/claude-code-history/specs/010-stream-session-parsing/contracts/cli-interface.md` if parser/helper names or observable behavior changed during implementation
-- [ ] T021 Audit `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/parser.ts` and `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/session.ts` for leftover whole-file `RawSessionEntry[]` retention or duplicate target-file parses and remove any remaining hot paths
-- [ ] T022 Run `npm run typecheck`, `npm test`, and `npm run lint` using `/Users/borui/Devs/vibe-coding-history/claude-code-history/package.json` and fix any failures under `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/` or `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/`
+- [ ] T021 [P] Update `/Users/borui/Devs/vibe-coding-history/claude-code-history/specs/010-stream-session-parsing/quickstart.md`, `/Users/borui/Devs/vibe-coding-history/claude-code-history/specs/010-stream-session-parsing/contracts/library-api.md`, and `/Users/borui/Devs/vibe-coding-history/claude-code-history/specs/010-stream-session-parsing/contracts/cli-interface.md` if parser/helper names or observable behavior changed during implementation
+- [ ] T022 Audit `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/parser.ts` and `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/session.ts` for leftover whole-file `RawSessionEntry[]` retention or duplicate target-file parses and remove any remaining hot paths
+- [ ] T023 Run `npm run typecheck`, `npm test`, and `npm run lint` using `/Users/borui/Devs/vibe-coding-history/claude-code-history/package.json` and fix any failures under `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/` or `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/`
 
 ---
 
@@ -158,8 +159,8 @@ Phase 2 Foundational
 - `T003`, `T004`, and `T005` can run in parallel because parser tests, session tests, and type changes are in different files.
 - `T008` and `T009` can run in parallel for `US1` because list integration and performance tests are in different files.
 - `T012` and `T013` can run in parallel for `US2` because session unit tests and get-session integration tests are in different files.
-- `T016` and `T017` can run in parallel for `US3` because formatter unit tests and CLI integration tests are in different files.
-- `T020` can run in parallel with `T021` if docs and code-audit ownership are split.
+- `T016` can run in parallel with `T017` for `US3` because formatter unit tests and CLI integration tests are in different files, while `T018` should be sequenced with `T017` because they modify the same CLI test file.
+- `T021` can run in parallel with `T022` if docs and code-audit ownership are split.
 
 ## Parallel Example: User Story 1
 
@@ -179,7 +180,7 @@ Task: "Add failing large-payload integration tests for full-fidelity details and
 
 ```bash
 Task: "Add failing formatSessionTable() fallback tests for summary/preview/(No summary) in /Users/borui/Devs/vibe-coding-history/claude-code-history/tests/unit/cli/formatters/table.test.ts"
-Task: "Add failing cch list --json and human-readable preview fallback tests in /Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/cli/list.test.ts"
+Task: "Add failing cch list --json and human-readable preview fallback tests, top-level agent-row coverage, and >=90% fallback-fetch reduction checks in /Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/cli/list.test.ts"
 ```
 
 ---
@@ -197,7 +198,7 @@ Task: "Add failing cch list --json and human-readable preview fallback tests in 
 
 1. Deliver `US1` to remove the summary-listing OOM path and expose preview metadata.
 2. Deliver `US2` to remove duplicate full-file parsing during detail retrieval.
-3. Deliver `US3` to make CLI listing and summary JSON consume preview text without full-session fallback reads.
+3. Deliver `US3` to make CLI listing and summary JSON consume preview text, show top-level agent rows, and verify at least 90% fewer fallback detail-fetches.
 4. Finish with docs updates, parser/session hot-path audits, and the full validation suite.
 
 ### Suggested MVP Scope
@@ -209,16 +210,16 @@ Task: "Add failing cch list --json and human-readable preview fallback tests in 
 
 ## Independent Test Criteria by User Story
 
-- **US1**: `listSessions()` returns one summary per main session with stable agent links and untitled-session `preview` values, recovers from malformed lines, and stays at or below 512 MiB peak memory on the large fixture.
+- **US1**: `listSessions()` returns one top-level summary per discoverable main or agent session with stable main-session agent links and untitled-session `preview` values, recovers from malformed lines, and stays at or below 512 MiB peak memory on the large fixture.
 - **US2**: `getSession()` and `getAgentSession()` return complete messages, metadata, and inherited `preview` while scanning each target transcript no more than once.
-- **US3**: `formatSessionTable()` and `cch list --json` render or expose `preview` for untitled sessions, preserve explicit `summary` precedence, and do not require fallback detail reads when `--stats` is absent.
+- **US3**: `formatSessionTable()` and `cch list --json` render or expose 200-character `preview` values for untitled sessions, preserve explicit `summary` precedence, show `(No summary)` when both fields are absent, include top-level agent rows, and reduce fallback detail fetches by at least 90% when `--stats` is absent.
 
 ## Task Count Summary
 
-- **Total tasks**: 22
+- **Total tasks**: 23
 - **US1 tasks**: 4
 - **US2 tasks**: 4
-- **US3 tasks**: 4
+- **US3 tasks**: 5
 - **Setup tasks**: 2
 - **Foundational tasks**: 5
 - **Polish tasks**: 3

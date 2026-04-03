@@ -25,12 +25,13 @@ cch list
 
 **Behavioral Contract**:
 - Main-session rows, sorting, workspace filtering, and pagination semantics remain unchanged.
+- Agent sessions also appear as top-level rows in `cch list`.
 - The `SUMMARY` column displays:
   - explicit `summary` when present,
   - otherwise derived `preview`,
   - otherwise `(No summary)`.
 - Table column truncation remains a display concern only; the library still exposes the full bounded `preview` value in summary objects.
-- Session listing must not fail with memory exhaustion on the planned large-fixture workload at or below the 512 MiB ceiling.
+- Session listing must not fail with memory exhaustion on the planned large-fixture workload at or below the 512 MiB ceiling, and summary-only preview rendering must reduce fallback detail fetches by at least 90% versus the old untitled-session fallback flow on the same fixture.
 
 ### JSON Output
 
@@ -83,7 +84,7 @@ cch view <session> [options]
 
 | Command | Behavior |
 |---------|----------|
-| `cch list` | Uses `summary`, then `preview`, then `(No summary)` for the SUMMARY column |
+| `cch list` | Shows both main and agent sessions as top-level rows; uses `summary`, then `preview`, then `(No summary)` for the SUMMARY column |
 | `cch list --json` | Includes additive `preview` per row |
 | `cch view <session>` | Retrieves full messages and metadata from one transcript pass |
 | `cch view <agent-id>` | Keeps existing agent lookup semantics and one-pass detail parsing |

@@ -7,7 +7,7 @@
 
 ## Summary
 
-Refactor session parsing so summary listing and detail retrieval scan transcript files once and retain only the derived state they actually need. `listSessions()` gets a lightweight one-pass summary/link parser with bounded first-user preview text, `getSession()` builds messages and metadata in one pass instead of parsing the same transcript twice, and `SessionSummary` gains an additive preview field so `cch list` and downstream consumers can show fallback labels without opening every untitled session.
+Refactor session parsing so summary listing and detail retrieval scan transcript files once and retain only the derived state they actually need. `listSessions()` gets a lightweight one-pass summary/link parser with bounded first-user preview text and top-level rows for both main and agent sessions, `getSession()` builds messages and metadata in one pass instead of parsing the same transcript twice, and `SessionSummary` gains an additive preview field so `cch list` and downstream consumers can show fallback labels without opening every untitled session.
 
 ## Technical Context
 
@@ -17,7 +17,7 @@ Refactor session parsing so summary listing and detail retrieval scan transcript
 **Testing**: Vitest unit, integration, and performance regression tests for parser/session APIs, CLI list fallback display, large-transcript memory ceilings, and one-pass parse verification  
 **Target Platform**: Node.js 20+ on macOS, Linux, and Windows
 **Project Type**: Single TypeScript project with library and CLI layers  
-**Performance Goals**: `listSessions()` completes a fixture with at least 1,000 sessions and at least 25 very large transcripts at or below 512 MiB peak memory; each `getSession()` request processes its target transcript source no more than once; at least 95% of untitled sessions with a user-authored message expose fallback preview text from summary listing alone  
+**Performance Goals**: `listSessions()` returns top-level main-session and agent-session rows, completes a fixture with at least 1,000 sessions and at least 25 very large transcripts at or below 512 MiB peak memory, each `getSession()` request processes its target transcript source no more than once, at least 95% of untitled sessions with a user-authored message expose fallback preview text from summary listing alone, and baseline-vs-new tests show at least 90% fewer fallback detail-fetches on the same fixture
 **Constraints**: No source transcript mutation; preserve full-fidelity `Session.messages` and metadata in detail retrieval; do not retain a full raw transcript array alongside derived outputs; keep preview support additive and non-breaking; do not modify downstream `vibe-history` consumer code in this branch; avoid new runtime dependencies  
 **Scale/Scope**: One parser/session/library refactor plus CLI list fallback display and regression tests, covering thousands of session files, very large assistant/tool payloads, malformed lines, flat/nested agent links, and untitled-session previews
 
@@ -35,6 +35,9 @@ Refactor session parsing so summary listing and detail retrieval scan transcript
 | IV. Library-First Architecture | ✅ Pass | Memory-safe parsing and preview extraction are implemented in `src/lib/`; the CLI consumes the additive summary field. |
 | V. Data Fidelity | ✅ Pass | Full session retrieval still returns complete messages/tool payloads; summary previews are additive and do not replace stored transcript data. |
 
+**Governance Exception**:
+- The feature branch remains `010-stream-session-parsing` as an explicit one-off exception to the constitution's `<type>/<short-description>` branch naming convention so the generated Spec Kit branch and `specs/010-stream-session-parsing/` directory stay aligned.
+
 **Technical Standards Compliance**:
 - TypeScript strict mode and the existing Node.js 20+ single-package setup remain unchanged ✅
 - No new runtime dependencies are required ✅
@@ -51,7 +54,7 @@ Refactor session parsing so summary listing and detail retrieval scan transcript
 | IV. Library-First Architecture | ✅ Pass | `SessionSummary.preview` and parser/session changes are library features first; CLI table rendering only formats those outputs. |
 | V. Data Fidelity | ✅ Pass | Detail parsing remains full-fidelity, and summary parsing extracts bounded previews without mutating the underlying transcript or redefining `summary`. |
 
-No constitution violations require justification.
+The only constitution-related exception is the branch naming convention deviation documented above and in Complexity Tracking.
 
 ## Project Structure
 
@@ -92,11 +95,14 @@ tests/
 │       └── session-lookup.test.ts         # Large-fixture memory ceiling and duplicate-pass regression coverage
 └── unit/
     ├── parser.test.ts                     # Streaming summary/detail scan helpers and malformed-line recovery
-    └── session.test.ts                    # Listing/detail orchestration and link resolution with preview summaries
+    ├── session.test.ts                    # Listing/detail orchestration and link resolution with preview summaries
+    └── cli/
+        └── formatters/
+            └── table.test.ts              # Summary/preview/(No summary) fallback rendering
 ```
 
 **Structure Decision**: Keep the existing single-project `src/lib` + `src/cli` split. Parser/session logic and the additive summary preview field live in the library layer, while CLI table formatting only uses those values for display fallback. Tests stay under the current `tests/unit`, `tests/integration`, and `tests/integration/performance` layout.
 
 ## Complexity Tracking
 
-No constitutional or architectural exceptions are required. The feature is a memory-lifetime refactor inside the current library-first architecture with one additive summary field and no new subsystems or dependencies.
+No architectural exceptions are required. The only documented governance exception is the generated branch name `010-stream-session-parsing`, which intentionally keeps the Spec Kit numeric branch format instead of `<type>/<short-description>` for this one branch.

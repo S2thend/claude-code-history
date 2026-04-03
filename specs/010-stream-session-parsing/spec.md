@@ -11,6 +11,11 @@
 
 - Q: What peak-memory ceiling should large-fixture session-listing regression tests enforce? → A: 512 MiB peak during large-fixture listSessions().
 - Q: Should this feature include downstream vibe-history code changes, or only claude-code-history parser/API changes? → A: CCH library changes only; no vibe-history code changes in this feature.
+- Q: Should the current feature branch be renamed to match the constitution's `<type>/<short-description>` convention? → A: Keep `010-stream-session-parsing` and document it as an explicit branch-name exception for this Spec Kit branch.
+- Q: Should `listSessions()`/`cch list` include agent sessions as top-level rows? → A: Yes. Return both main-session and agent-session summaries as top-level rows, while main sessions still expose linked agent IDs.
+- Q: What exact preview length cap and fallback label should summaries use? → A: Cap `preview` at 200 characters and use `(No summary)` when neither `summary` nor `preview` is available.
+- Q: How should the 90% fallback-detail-fetch reduction target be validated? → A: Add an explicit baseline-vs-new regression test that compares fallback detail-fetch counts on the same fixture and asserts at least 90% reduction.
+- Q: How should the plan/tasks test-path mismatch be resolved? → A: Add `tests/unit/cli/formatters/table.test.ts` to the implementation plan's test tree.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -24,7 +29,7 @@ A developer or downstream product user can list session history for a project th
 
 **Acceptance Scenarios**:
 
-1. **Given** a project containing many large session transcripts, **When** the user lists sessions, **Then** the user receives one summary per discoverable session without a memory-exhaustion failure.
+1. **Given** a project containing many large main-session and agent-session transcripts, **When** the user lists sessions, **Then** the user receives one summary per discoverable main or agent session without a memory-exhaustion failure.
 2. **Given** a session that has no explicit title but does contain user-authored messages, **When** the user lists sessions, **Then** the summary includes a preview derived from the earliest user-authored message so the session can be recognized without opening the full transcript.
 3. **Given** a session with linked agent activity, **When** the user lists sessions, **Then** the summary includes the agent-link information needed to represent that relationship.
 
@@ -55,8 +60,8 @@ A downstream consumer that displays Claude history can build useful fallback tit
 
 **Acceptance Scenarios**:
 
-1. **Given** a collection of untitled sessions where each session has at least one user message, **When** a consumer renders a listing from summary data only, **Then** the consumer can display fallback preview text for each such session without opening the full session details.
-2. **Given** a session with no usable title and no extractable user preview text, **When** a consumer renders a listing from summary data only, **Then** the consumer still receives a safe fallback label and the rest of the listing remains usable.
+1. **Given** a collection of untitled sessions where each session has at least one user message, **When** a consumer renders a listing from summary data only, **Then** the consumer can display fallback preview text of at most 200 characters for each such session without opening the full session details.
+2. **Given** a session with no usable title and no extractable user preview text, **When** a consumer renders a listing from summary data only, **Then** the consumer still receives `(No summary)` as the fallback label and the rest of the listing remains usable.
 
 ---
 
@@ -73,26 +78,26 @@ A downstream consumer that displays Claude history can build useful fallback tit
 
 ### Functional Requirements
 
-- **FR-001**: Session listing MUST return summary rows for all discoverable sessions without requiring the full message history of each listed session to be retained in memory at the same time.
-- **FR-002**: Session summaries MUST include, when available, the session title, a fallback preview derived from the earliest user-authored message, first and last activity timestamps, message count, branch name, and linked agent-session relationships.
+- **FR-001**: Session listing MUST return top-level summary rows for all discoverable main sessions and agent sessions without requiring the full message history of each listed session to be retained in memory at the same time.
+- **FR-002**: Session summaries MUST include, when available, the session title, a fallback preview derived from the earliest user-authored message and capped at 200 characters, first and last activity timestamps, message count, branch name, and linked agent-session relationships for main-session rows.
 - **FR-003**: Session-detail retrieval MUST return the full normalized conversation and summary metadata for the requested session while ensuring that each underlying transcript source is processed no more than once per request.
 - **FR-004**: Summary-only workflows MUST be able to compute titles, preview text, timestamps, message counts, branch metadata, and agent links incrementally without retaining a full raw transcript representation for every listed session.
-- **FR-005**: When a transcript record is malformed, incomplete, or missing nonessential metadata, the system MUST continue processing the rest of the session or listing, expose a safe fallback value where possible, and avoid failing the entire request unless the session source itself is unreadable.
+- **FR-005**: When a transcript record is malformed, incomplete, or missing nonessential metadata, the system MUST continue processing the rest of the session or listing, expose `(No summary)` when neither a title nor preview is available, and avoid failing the entire request unless the session source itself is unreadable.
 - **FR-006**: Existing consumers of session summaries and session details MUST continue to receive all previously exposed user-visible session information, with preview text added to summaries as a non-breaking extension.
 - **FR-007**: Session listing MUST provide enough preview information for downstream consumers to generate fallback labels for untitled sessions without fetching each full session detail individually.
-- **FR-008**: Regression coverage MUST include large synthetic sessions with oversized assistant/tool-result content and verify both successful completion with session-listing peak memory at or below 512 MiB and the absence of duplicate processing passes for one session-detail request.
+- **FR-008**: Regression coverage MUST include large synthetic sessions with oversized assistant/tool-result content and verify successful completion with session-listing peak memory at or below 512 MiB, the absence of duplicate processing passes for one session-detail request, and at least 90% fewer fallback detail-fetches than the baseline untitled-session listing flow on the same fixture.
 - **FR-009**: This feature MUST deliver the parser, summary, and detail-loading changes in `claude-code-history` only; modifying downstream `vibe-history` consumer code is explicitly out of scope.
 
 ### Key Entities
 
-- **Session Summary**: A compact representation of one conversation for listing views, including title or fallback preview, activity timestamps, message count, branch metadata, and agent-link references.
+- **Session Summary**: A compact representation of one main or agent conversation for listing views, including title or fallback preview, activity timestamps, message count, branch metadata, and agent-link references for main-session rows.
 - **Session Detail**: The full ordered conversation for one session plus the metadata needed to display and relate that session in history views.
 - **Session Transcript**: The source record sequence for one conversation, which may contain user messages, assistant messages, tool outputs, metadata, and malformed or partial records.
 - **Agent Link**: A relationship between a main session and a child agent session, including the identifiers and display metadata needed for navigation.
 
 ## Assumptions
 
-- Preview text for untitled sessions should use the earliest user-authored message after trimming whitespace and applying a reasonable display-length limit; if no such message exists, the existing generic fallback label remains acceptable.
+- Preview text for untitled sessions should use the earliest user-authored message after trimming whitespace, applying a 200-character cap, and falling back to `(No summary)` if no title or preview exists.
 - The feature should preserve current session discovery and detail semantics while reducing peak memory usage and redundant transcript processing.
 - Memory validation can use large synthetic transcript fixtures that reflect the size and shape of real conversations with very large tool outputs.
 
@@ -103,5 +108,5 @@ A downstream consumer that displays Claude history can build useful fallback tit
 - **SC-001**: Listing a fixture with at least 1,000 sessions, including at least 25 very large transcripts, completes successfully with no memory-exhaustion failure and with peak memory at or below 512 MiB.
 - **SC-002**: Opening one very large session returns the complete conversation and metadata successfully, and validation shows that the session source was processed no more than once for that request.
 - **SC-003**: For at least 95% of untitled sessions that contain a user-authored message, listing results alone provide enough preview text for a consumer to render a meaningful fallback label without a detail fetch.
-- **SC-004**: Compared with the current behavior on the same large-session fixture, the number of full session-detail fetches needed solely for fallback previews in downstream listings is reduced by at least 90%.
+- **SC-004**: Compared with the current behavior on the same large-session fixture, an automated baseline-vs-new regression test shows that the number of full session-detail fetches needed solely for fallback previews in downstream listings is reduced by at least 90%.
 - **SC-005**: In repeated runs over large synthetic fixtures, session listing and single-session detail retrieval both complete with zero unhandled failures caused by malformed individual transcript records.

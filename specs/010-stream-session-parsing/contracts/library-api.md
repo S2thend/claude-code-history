@@ -57,10 +57,10 @@ export async function listSessions(
 ```
 
 **Behavioral Contract**:
-- Returns one `SessionSummary` per discoverable main session, excluding agent transcripts as top-level rows.
+- Returns one `SessionSummary` per discoverable main session and agent session as top-level rows.
 - Populates `preview` directly from summary parsing so consumers can render fallback labels for untitled sessions without calling `getSession()` per row.
 - Uses one-pass summary scans for compact metadata, preview, and explicit agent-link extraction, and must not retain full raw transcript arrays for every listed session.
-- Preserves existing pagination, workspace filtering, sorting, and linked/unresolved agent ID semantics.
+- Preserves existing pagination, workspace filtering, sorting, and linked/unresolved agent ID semantics on main-session rows; agent-session rows may return empty link arrays.
 - Malformed non-empty JSON lines in one transcript must not abort listing of unrelated sessions; recoverable parse warnings remain internal unless surfaced by an existing caller.
 
 ### getSession
@@ -105,4 +105,5 @@ export async function getAgentSession(
 - Integration or unit tests must prove `cch list` can display fallback labels from `summary ?? preview ?? '(No summary)'`.
 - Instrumentation tests must prove one `getSession()` or `getAgentSession()` request does not parse the same transcript file more than once.
 - Large-fixture regression tests must prove `listSessions()` stays at or below 512 MiB peak memory while preserving summary rows and agent-link metadata.
+- Regression tests must compare baseline-vs-new fallback detail-fetch counts on the same untitled-session fixture and assert at least 90% fewer full detail fetches.
 - Parser tests must prove malformed lines remain recoverable and do not block valid later entries.
