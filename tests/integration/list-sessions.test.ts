@@ -9,6 +9,12 @@ import { tmpdir } from 'os';
 import { listSessions } from '../../src/lib/session.js';
 import { DEFAULT_CONFIG } from '../../src/lib/config.js';
 import { DataNotFoundError } from '../../src/lib/errors.js';
+import {
+  createTempClaudeData,
+  cleanupTempClaudeData,
+  readFixture,
+  writeProjectSessionFile,
+} from '../helpers/agent-linking.js';
 
 function createBulkSessionJson(
   sessionId: string,
@@ -299,5 +305,78 @@ describe('listSessions unlimited behavior', () => {
     expect(result.pagination.limit).toBe(0);
     expect(result.pagination.offset).toBe(200);
     expect(result.pagination.hasMore).toBe(false);
+  });
+});
+
+describe('listSessions nested agent linking', () => {
+  let testDataPath = '';
+
+  beforeAll(async () => {
+    const tempData = await createTempClaudeData('claude-list-linking-');
+    testDataPath = tempData.dataPath;
+
+    const nestedMain = await readFixture('nested-main-session.jsonl');
+    const nestedAgent = await readFixture('nested-agent-session.jsonl');
+
+    await writeProjectSessionFile(
+      tempData.projectsPath,
+      '-tmp-agent-linking',
+      '11111111-1111-1111-1111-111111111111.jsonl',
+      nestedMain
+    );
+    await writeProjectSessionFile(
+      tempData.projectsPath,
+      '-tmp-agent-linking',
+      '11111111-1111-1111-1111-111111111111/subagents/agent-linked123.jsonl',
+      nestedAgent
+    );
+
+    const unrelatedMain = [
+      '{"type":"summary","summary":"Unrelated parent session","leafUuid":"unrelated-msg-002"}',
+      '{"type":"user","uuid":"unrelated-msg-001","parentUuid":null,"timestamp":"2026-04-02T15:00:00.000Z","sessionId":"77777777-7777-7777-7777-777777777777","cwd":"/tmp/agent-linking","gitBranch":"main","version":"2.0.55","isSidechain":false,"message":{"role":"user","content":"No agent references here"}}',
+      '{"type":"assistant","uuid":"unrelated-msg-002","parentUuid":"unrelated-msg-001","timestamp":"2026-04-02T15:00:10.000Z","sessionId":"77777777-7777-7777-7777-777777777777","message":{"model":"claude-opus-4-5-20251101","role":"assistant","content":[{"type":"text","text":"Standalone session"}],"stop_reason":"end_turn","usage":{"input_tokens":3,"output_tokens":4,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}',
+    ].join('\n');
+    const unrelatedAgent = [
+      '{"type":"summary","summary":"Unrelated nested agent","leafUuid":"unrelated-agent-002"}',
+      '{"type":"user","uuid":"unrelated-agent-001","parentUuid":null,"timestamp":"2026-04-02T15:00:11.000Z","sessionId":"77777777-7777-7777-7777-777777777777","agentId":"orphan111","cwd":"/tmp/agent-linking","gitBranch":"main","version":"2.0.55","isSidechain":true,"message":{"role":"user","content":"Orphan nested agent"}}',
+      '{"type":"assistant","uuid":"unrelated-agent-002","parentUuid":"unrelated-agent-001","timestamp":"2026-04-02T15:00:20.000Z","sessionId":"77777777-7777-7777-7777-777777777777","agentId":"orphan111","message":{"model":"claude-haiku-4-5-20251001","role":"assistant","content":[{"type":"text","text":"Not linked to the other session"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":2,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}',
+    ].join('\n');
+
+    await writeProjectSessionFile(
+      tempData.projectsPath,
+      '-tmp-agent-linking',
+      '77777777-7777-7777-7777-777777777777.jsonl',
+      unrelatedMain
+    );
+    await writeProjectSessionFile(
+      tempData.projectsPath,
+      '-tmp-agent-linking',
+      '77777777-7777-7777-7777-777777777777/subagents/agent-orphan111.jsonl',
+      unrelatedAgent
+    );
+  });
+
+  afterAll(async () => {
+    await cleanupTempClaudeData(testDataPath);
+  });
+
+  it('should keep nested agent files out of top-level list rows', async () => {
+    const result = await listSessions({ dataPath: testDataPath });
+
+    expect(result.data.every((session) => !session.id.startsWith('agent-'))).toBe(true);
+  });
+
+  it('should include linked and unresolved agent metadata only for the correct main session', async () => {
+    const result = await listSessions({ dataPath: testDataPath });
+    const nestedParent = result.data.find(
+      (session) => session.id === '11111111-1111-1111-1111-111111111111'
+    );
+    const unrelatedParent = result.data.find(
+      (session) => session.id === '77777777-7777-7777-7777-777777777777'
+    );
+
+    expect(nestedParent?.agentIds).toEqual(['linked123']);
+    expect(nestedParent?.unresolvedAgentIds).toEqual(['missing456']);
+    expect(unrelatedParent?.agentIds).toEqual(['orphan111']);
   });
 });

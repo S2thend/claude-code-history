@@ -59,6 +59,9 @@ export interface SessionSummary {
 
   /** Linked agent session IDs */
   agentIds: string[];
+
+  /** Referenced agent IDs whose transcripts are not discoverable */
+  unresolvedAgentIds: string[];
 }
 
 /**
@@ -431,6 +434,7 @@ export interface RawSessionEntry {
   isSidechain?: boolean;
   isMeta?: boolean;
   message?: RawMessage;
+  toolUseResult?: unknown;
   data?: unknown;
   normalizedMessages?: unknown[];
   summary?: string;

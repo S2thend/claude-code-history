@@ -14,7 +14,12 @@ import {
   extractSessionId,
   isAgentSessionFile,
   extractAgentId,
+  discoverProjectSessionFiles,
+  getNestedOwnerSessionId,
+  getAgentStorageLayout,
 } from '../../src/lib/platform.js';
+import { mkdir, rm, writeFile } from 'fs/promises';
+import { tmpdir } from 'os';
 
 describe('getDefaultDataPath', () => {
   it('should return path to ~/.claude', () => {
@@ -143,5 +148,73 @@ describe('extractAgentId', () => {
     expect(extractAgentId('123e4567-e89b-12d3-a456-426614174000.jsonl')).toBe(null);
     expect(extractAgentId('agent-abc1234.json')).toBe(null);
     expect(extractAgentId('random.jsonl')).toBe(null);
+  });
+});
+
+describe('nested agent discovery helpers', () => {
+  it('should extract nested owner session IDs for macOS/Linux-style paths', () => {
+    const projectDir = '/Users/test/.claude/projects/-Users-test-project';
+    const filePath =
+      '/Users/test/.claude/projects/-Users-test-project/11111111-1111-1111-1111-111111111111/subagents/agent-linked123.jsonl';
+
+    expect(getNestedOwnerSessionId(projectDir, filePath)).toBe(
+      '11111111-1111-1111-1111-111111111111'
+    );
+    expect(getAgentStorageLayout(projectDir, filePath)).toBe('nested');
+  });
+
+  it('should extract nested owner session IDs for Windows-style paths', () => {
+    const projectDir = 'C:\\Users\\test\\.claude\\projects\\C-Users-test-project';
+    const filePath =
+      'C:\\Users\\test\\.claude\\projects\\C-Users-test-project\\22222222-2222-2222-2222-222222222222\\subagents\\agent-linked123.jsonl';
+
+    expect(getNestedOwnerSessionId(projectDir, filePath)).toBe(
+      '22222222-2222-2222-2222-222222222222'
+    );
+    expect(getAgentStorageLayout(projectDir, filePath)).toBe('nested');
+  });
+
+  it('should treat flat agent files as flat layout', () => {
+    const projectDir = '/Users/test/.claude/projects/-Users-test-project';
+    const filePath = '/Users/test/.claude/projects/-Users-test-project/agent-flat123.jsonl';
+
+    expect(getNestedOwnerSessionId(projectDir, filePath)).toBe(null);
+    expect(getAgentStorageLayout(projectDir, filePath)).toBe('flat');
+  });
+
+  it('should recursively discover flat and nested session files', async () => {
+    const projectDir = join(tmpdir(), `claude-platform-${Date.now()}`);
+
+    await mkdir(join(projectDir, '11111111-1111-1111-1111-111111111111', 'subagents'), {
+      recursive: true,
+    });
+    await writeFile(
+      join(projectDir, 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.jsonl'),
+      '{"type":"summary","summary":"main","leafUuid":"msg-1"}'
+    );
+    await writeFile(
+      join(projectDir, 'agent-flat123.jsonl'),
+      '{"type":"summary","summary":"flat","leafUuid":"msg-1"}'
+    );
+    await writeFile(
+      join(
+        projectDir,
+        '11111111-1111-1111-1111-111111111111',
+        'subagents',
+        'agent-linked123.jsonl'
+      ),
+      '{"type":"summary","summary":"nested","leafUuid":"msg-1"}'
+    );
+
+    const files = await discoverProjectSessionFiles(projectDir);
+
+    expect(files).toHaveLength(3);
+    expect(files.some((file) => file.endsWith('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.jsonl'))).toBe(
+      true
+    );
+    expect(files.some((file) => file.endsWith('agent-flat123.jsonl'))).toBe(true);
+    expect(files.some((file) => file.endsWith('agent-linked123.jsonl'))).toBe(true);
+
+    await rm(projectDir, { recursive: true, force: true });
   });
 });

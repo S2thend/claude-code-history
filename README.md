@@ -14,6 +14,7 @@ A POSIX-style CLI tool that does one thing well: access your Claude Code chat hi
 
 - **List Sessions** - View all your Claude Code sessions with summaries, timestamps, and message counts
 - **View Conversations** - Read full session content with formatted messages and tool calls
+- **Linked Agent Sessions** - Discover nested subagent transcripts, expose linked agent IDs on parent sessions, and open agent transcripts directly by bare or prefixed agent ID
 - **Progress Messages** - Search, view, filter, and export `progress` session entries without falling back to raw JSONL files
 - **Token Statistics** - View complete token usage breakdown (input, output, cache read, cache creation) per session or aggregated across sessions
 - **Search** - Find specific content across all sessions or within a single session
@@ -58,6 +59,8 @@ cch list --stats
 cch list --json
 ```
 
+Human-readable `cch list` output remains main-session-only. `cch list --json` includes `agentIds` for discoverable child transcripts and `unresolvedAgentIds` for referenced child agents whose transcripts are not currently discoverable.
+
 **Output:**
 
 ```
@@ -96,12 +99,19 @@ cch view 0
 # View by UUID
 cch view abc123-def456-...
 
+# View a linked agent transcript directly
+cch view linked123
+cch view agent-linked123
+
 # View only progress messages
 cch view 0 --only progress
 
 # Output as JSON
 cch view 0 --json
+cch view linked123 --json
 ```
+
+`cch view` accepts a session index, full or partial main-session UUID, bare agent ID, or `agent-<id>`. Direct agent lookup is safe by default: ambiguous bare agent IDs fail instead of guessing. In JSON mode, ambiguous agent lookups return an `ambiguous-agent-id` error payload, and missing direct agent lookups return `session-not-found`.
 
 **Output:**
 
@@ -210,7 +220,11 @@ cch export --all --output all-sessions.json
 cch export --all --format markdown --output all-sessions.md
 ```
 
-Progress messages are preserved in JSON and Markdown exports, and `cch view --json` retains `type: "progress"` entries in the returned message list.
+Progress messages are preserved in JSON and Markdown exports, `cch view --json` retains `type: "progress"` entries in the returned message list, and exported session metadata preserves both `agentIds` and `unresolvedAgentIds`.
+
+## Platform Notes
+
+Nested subagent discovery is supported on macOS, Linux, and Windows Claude directory layouts. One existing Claude path caveat still applies: encoded project directory names do not round-trip perfectly when original workspace path segments contain literal hyphens, so decoded paths in those edge cases can normalize hyphens into path separators.
 
 ### Migrate Sessions
 

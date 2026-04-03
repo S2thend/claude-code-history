@@ -11,6 +11,7 @@ import {
   parseSessionFile,
   parseSessionMetadata,
   extractMetadata,
+  extractExplicitAgentIds,
 } from '../../src/lib/parser.js';
 
 const FIXTURES_DIR = join(process.cwd(), 'tests', 'fixtures');
@@ -823,6 +824,60 @@ describe('extractMetadata', () => {
   });
 });
 
+describe('extractExplicitAgentIds', () => {
+  it('should extract agent IDs from top-level toolUseResult payloads', () => {
+    const entries = [
+      {
+        type: 'user',
+        uuid: 'msg-001',
+        toolUseResult: {
+          status: 'completed',
+          agentId: 'linked123',
+        },
+      },
+      {
+        type: 'user',
+        uuid: 'msg-002',
+        toolUseResult: {
+          status: 'completed',
+          agentId: 'missing456',
+        },
+      },
+    ];
+
+    expect(extractExplicitAgentIds(entries)).toEqual(['linked123', 'missing456']);
+  });
+
+  it('should deduplicate repeated agent IDs', () => {
+    const entries = [
+      {
+        type: 'user',
+        uuid: 'msg-001',
+        toolUseResult: { agentId: 'linked123' },
+      },
+      {
+        type: 'user',
+        uuid: 'msg-002',
+        toolUseResult: { agentId: 'linked123' },
+      },
+    ];
+
+    expect(extractExplicitAgentIds(entries)).toEqual(['linked123']);
+  });
+
+  it('should ignore entries without agent metadata', () => {
+    const entries = [
+      {
+        type: 'user',
+        uuid: 'msg-001',
+        toolUseResult: { stdout: 'no agent' },
+      },
+    ];
+
+    expect(extractExplicitAgentIds(entries)).toEqual([]);
+  });
+});
+
 describe('parseSessionMetadata', () => {
   it('should extract metadata from session file', async () => {
     const filePath = join(FIXTURES_DIR, 'sample-session.jsonl');
@@ -852,5 +907,13 @@ describe('parseSessionMetadata', () => {
     expect(result.warnings).toHaveLength(0);
     expect(result.data.summary).toBe('Progress repro');
     expect(result.data.messageCount).toBe(4);
+  });
+
+  it('should extract contract metadata from nested main-session fixtures', async () => {
+    const filePath = join(FIXTURES_DIR, 'contracts', 'claude-main-session.jsonl');
+    const result = await parseSessionMetadata(filePath);
+
+    expect(result.data.summary).toContain('Anonymized Claude nested agent contract fixture');
+    expect(result.data.sessionId).toBe('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
   });
 });

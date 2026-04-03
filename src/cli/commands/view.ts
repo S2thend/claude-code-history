@@ -7,6 +7,7 @@
 import type { Command } from 'commander';
 import {
   getSession,
+  isAmbiguousAgentSessionError,
   isSessionNotFoundError,
   isDataNotFoundError,
   filterMessages,
@@ -19,6 +20,8 @@ import {
   resolveConfig,
   toLibraryConfig,
   parseSessionRef,
+  createJsonLookupErrorResult,
+  isDirectAgentLookupInput,
 } from '../utils/config.js';
 import { notFoundError, ioError, usageError } from '../utils/errors.js';
 import { successResult, output, handleError } from '../utils/output.js';
@@ -55,6 +58,22 @@ function parseFilterTypes(input: string): FilterableMessageType[] {
   return types.filter((t) => t !== '') as FilterableMessageType[];
 }
 
+function outputLookupJsonError(
+  type: 'ambiguous-agent-id' | 'session-not-found',
+  sessionArg: string
+): void {
+  process.stdout.write(
+    JSON.stringify(
+      {
+        success: false,
+        error: createJsonLookupErrorResult(type, sessionArg),
+      },
+      null,
+      2
+    ) + '\n'
+  );
+}
+
 /**
  * Execute the view command
  */
@@ -63,7 +82,7 @@ async function executeView(sessionArg: string, options: ViewOptions): Promise<vo
     const exitCode = handleError(
       usageError(
         'Session identifier required',
-        "Usage: cch view <session>\n\nProvide a session index (e.g., '0') or UUID."
+        'Usage: cch view <session>\n\nProvide a session index, session UUID, or agent ID.'
       ),
       options.json
     );
@@ -150,7 +169,28 @@ async function executeView(sessionArg: string, options: ViewOptions): Promise<vo
       await outputWithPager(formattedSession, options.full);
     }
   } catch (error) {
+    if (isAmbiguousAgentSessionError(error)) {
+      if (options.json) {
+        outputLookupJsonError('ambiguous-agent-id', sessionArg);
+      } else {
+        const exitCode = handleError(
+          usageError(
+            `Agent ID is ambiguous: ${error.agentId}`,
+            'Multiple matching agent transcripts were found. Use a more specific session identifier.'
+          ),
+          false
+        );
+        process.exit(exitCode);
+      }
+      process.exit(2);
+    }
+
     if (isSessionNotFoundError(error)) {
+      if (options.json && isDirectAgentLookupInput(sessionArg)) {
+        outputLookupJsonError('session-not-found', sessionArg);
+        process.exit(3);
+      }
+
       const exitCode = handleError(
         notFoundError(
           `Session not found: ${sessionArg}`,
@@ -182,7 +222,7 @@ async function executeView(sessionArg: string, options: ViewOptions): Promise<vo
 export function registerViewCommand(program: Command): void {
   program
     .command('view <session>')
-    .description("View a session's contents")
+    .description('View a session by index, UUID, or agent ID')
     .option(
       '-o, --only <types>',
       'Filter by message type (user,assistant,tool,thinking,error,progress)'

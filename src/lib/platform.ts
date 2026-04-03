@@ -3,7 +3,8 @@
  */
 
 import { homedir } from 'os';
-import { join } from 'path';
+import { readdir } from 'fs/promises';
+import { basename, join } from 'path';
 
 /**
  * Get the default Claude Code data directory path for the current platform.
@@ -101,6 +102,74 @@ export function extractAgentId(filename: string): string | null {
   if (!isAgentSessionFile(filename)) {
     return null;
   }
+
   // Remove 'agent-' prefix and '.jsonl' suffix
   return filename.slice(6, -6);
+}
+
+/**
+ * Normalize path separators so path matching works across platforms and tests.
+ */
+function normalizePathForMatching(value: string): string {
+  return value.replace(/\\/g, '/').replace(/\/+$/, '');
+}
+
+/**
+ * Recursively discover session files beneath a Claude project directory.
+ * Includes both flat root files and nested subagent files.
+ */
+export async function discoverProjectSessionFiles(projectDir: string): Promise<string[]> {
+  const sessionFiles: string[] = [];
+
+  async function walk(currentDir: string): Promise<void> {
+    const entries = await readdir(currentDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = join(currentDir, entry.name);
+
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+        continue;
+      }
+
+      if (extractSessionId(entry.name)) {
+        sessionFiles.push(fullPath);
+      }
+    }
+  }
+
+  await walk(projectDir);
+  return sessionFiles;
+}
+
+/**
+ * Determine whether a discovered agent session file lives under a nested subagent directory.
+ */
+export function getNestedOwnerSessionId(projectDir: string, filePath: string): string | null {
+  const normalizedProjectDir = normalizePathForMatching(projectDir);
+  const normalizedFilePath = normalizePathForMatching(filePath);
+
+  if (!normalizedFilePath.startsWith(`${normalizedProjectDir}/`)) {
+    return null;
+  }
+
+  const relativePath = normalizedFilePath.slice(normalizedProjectDir.length + 1);
+  const match = relativePath.match(/^([^/]+)\/subagents\/agent-[^/]+\.jsonl$/);
+  const ownerSessionId = match?.[1] ?? null;
+
+  return ownerSessionId && isUUID(ownerSessionId) ? ownerSessionId : null;
+}
+
+/**
+ * Determine how an agent session file is stored.
+ */
+export function getAgentStorageLayout(projectDir: string, filePath: string): 'flat' | 'nested' {
+  return getNestedOwnerSessionId(projectDir, filePath) ? 'nested' : 'flat';
+}
+
+/**
+ * Extract a session filename from an absolute path.
+ */
+export function extractSessionIdFromPath(filePath: string): string | null {
+  return extractSessionId(basename(filePath));
 }

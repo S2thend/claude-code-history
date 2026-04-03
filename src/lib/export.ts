@@ -211,6 +211,10 @@ function formatSessionHeader(session: Session): string {
     lines.push(`| Agent Sessions | ${session.agentIds.join(', ')} |`);
   }
 
+  if (session.unresolvedAgentIds.length > 0) {
+    lines.push(`| Unresolved Agent References | ${session.unresolvedAgentIds.join(', ')} |`);
+  }
+
   lines.push('', '---', '');
 
   return lines.join('\n');

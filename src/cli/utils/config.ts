@@ -37,6 +37,15 @@ export interface ResolvedCliConfig {
 }
 
 /**
+ * Structured JSON error payload for direct agent lookup failures.
+ */
+export interface JsonLookupErrorResult {
+  type: 'ambiguous-agent-id' | 'session-not-found';
+  agentId: string;
+  message: string;
+}
+
+/**
  * Resolve CLI configuration from global options, environment variables, and defaults.
  *
  * Priority order (highest to lowest):
@@ -93,4 +102,48 @@ export function parseSessionRef(input: string): number | string {
 
   // Treat as UUID (lib layer will validate)
   return trimmed;
+}
+
+/**
+ * Normalize a direct agent lookup identifier to its bare agent ID form.
+ */
+export function normalizeAgentLookupId(input: string): string {
+  const trimmed = input.trim();
+  return trimmed.startsWith('agent-') ? trimmed.slice(6) : trimmed;
+}
+
+/**
+ * Best-effort check for whether CLI input should be treated as a direct agent lookup.
+ */
+export function isDirectAgentLookupInput(input: string): boolean {
+  const trimmed = input.trim();
+
+  if (trimmed.startsWith('agent-')) {
+    return true;
+  }
+
+  if (/^\d+$/.test(trimmed)) {
+    return false;
+  }
+
+  return !trimmed.includes('-');
+}
+
+/**
+ * Create a structured JSON error payload for direct agent lookup failures.
+ */
+export function createJsonLookupErrorResult(
+  type: JsonLookupErrorResult['type'],
+  input: string
+): JsonLookupErrorResult {
+  const agentId = normalizeAgentLookupId(input);
+
+  return {
+    type,
+    agentId,
+    message:
+      type === 'ambiguous-agent-id'
+        ? `Agent ID is ambiguous: ${agentId}`
+        : `Session not found: ${agentId}`,
+  };
 }

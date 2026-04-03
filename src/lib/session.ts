@@ -22,13 +22,21 @@ import { resolveConfig, paginate, createPagination, type ResolvedConfig } from '
 import {
   getProjectsPath,
   decodeProjectPath,
-  extractSessionId,
-  isAgentSessionFile,
-  extractAgentId,
+  discoverProjectSessionFiles,
+  extractSessionIdFromPath,
   isUUID,
+  getNestedOwnerSessionId,
+  getAgentStorageLayout,
 } from './platform.js';
-import { parseSessionFile, parseSessionMetadata } from './parser.js';
-import { DataNotFoundError, SessionNotFoundError } from './errors.js';
+import {
+  extractExplicitAgentIds,
+  extractMetadata,
+  parseJsonlFile,
+  parseSessionFile,
+  parseSessionMetadata,
+  type SessionMetadata,
+} from './parser.js';
+import { AmbiguousAgentSessionError, DataNotFoundError, SessionNotFoundError } from './errors.js';
 
 // =============================================================================
 // Types
@@ -42,7 +50,21 @@ interface SessionInfo {
   encodedPath: string;
   isAgent: boolean;
   agentId: string | null;
+  storageLayout: 'flat' | 'nested';
+  nestedOwnerSessionId: string | null;
   modifiedTime: Date;
+}
+
+interface MainSessionAnalysis {
+  metadata: SessionMetadata;
+  explicitAgentIds: string[];
+}
+
+interface LinkContext {
+  analysisBySessionId: Map<string, MainSessionAnalysis>;
+  agentSessionsById: Map<string, SessionInfo[]>;
+  explicitAgentOwners: Map<string, Set<string>>;
+  nestedAgentIdsByOwner: Map<string, Set<string>>;
 }
 
 // =============================================================================
@@ -77,48 +99,42 @@ async function discoverSessions(config: ResolvedConfig): Promise<SessionInfo[]> 
   const projectsPath = getProjectsPath(config.dataPath);
   const sessions: SessionInfo[] = [];
 
-  // Check if projects directory exists
   try {
     await stat(projectsPath);
   } catch {
-    // No projects directory = no sessions
     return [];
   }
 
-  // Read all project directories
   const projectDirs = await readdir(projectsPath);
 
   for (const encodedPath of projectDirs) {
     const projectDir = join(projectsPath, encodedPath);
 
-    // Skip if not a directory
     try {
       const dirStats = await stat(projectDir);
-      if (!dirStats.isDirectory()) continue;
+      if (!dirStats.isDirectory()) {
+        continue;
+      }
     } catch {
       continue;
     }
 
-    // Decode project path
     const projectPath = decodeProjectPath(encodedPath);
-
-    // Apply workspace filter if specified
     if (config.workspace && projectPath !== config.workspace) {
       continue;
     }
 
-    // Read session files in this project
-    const files = await readdir(projectDir);
+    const filePaths = await discoverProjectSessionFiles(projectDir);
 
-    for (const filename of files) {
-      const sessionId = extractSessionId(filename);
-      if (!sessionId) continue; // Skip non-session files
+    for (const filePath of filePaths) {
+      const sessionId = extractSessionIdFromPath(filePath);
+      if (!sessionId) {
+        continue;
+      }
 
-      const filePath = join(projectDir, filename);
-      const isAgent = isAgentSessionFile(filename);
-      const agentId = isAgent ? extractAgentId(filename) : null;
+      const isAgent = sessionId.startsWith('agent-');
+      const agentId = isAgent ? sessionId.slice(6) : null;
 
-      // Get file modification time for sorting
       try {
         const fileStats = await stat(filePath);
 
@@ -129,10 +145,11 @@ async function discoverSessions(config: ResolvedConfig): Promise<SessionInfo[]> 
           encodedPath,
           isAgent,
           agentId,
+          storageLayout: isAgent ? getAgentStorageLayout(projectDir, filePath) : 'flat',
+          nestedOwnerSessionId: isAgent ? getNestedOwnerSessionId(projectDir, filePath) : null,
           modifiedTime: fileStats.mtime,
         });
       } catch {
-        // Skip files we can't stat
         continue;
       }
     }
@@ -141,36 +158,173 @@ async function discoverSessions(config: ResolvedConfig): Promise<SessionInfo[]> 
   return sessions;
 }
 
-/**
- * Find agent sessions linked to a main session.
- * @param _mainSessionId - The main session ID (reserved for future use)
- * @param allSessions - All discovered sessions
- * @returns Array of agent IDs linked to this session
- */
-function findLinkedAgentIds(_mainSessionId: string, allSessions: SessionInfo[]): string[] {
-  // Agent sessions in the same project directory with matching patterns
-  // For now, we return agent sessions from the same project
-  // A more sophisticated approach would parse the main session to find Task tool results
-  return allSessions
-    .filter((s): s is SessionInfo & { agentId: string } => s.isAgent && s.agentId !== null)
-    .map((s) => s.agentId);
+function pushToArrayMap<K, V>(map: Map<K, V[]>, key: K, value: V): void {
+  const existing = map.get(key);
+  if (existing) {
+    existing.push(value);
+    return;
+  }
+
+  map.set(key, [value]);
 }
 
-// =============================================================================
-// Session Listing
-// =============================================================================
+function pushToSetMap<K, V>(map: Map<K, Set<V>>, key: K, value: V): void {
+  const existing = map.get(key);
+  if (existing) {
+    existing.add(value);
+    return;
+  }
 
-/**
- * Build a SessionSummary from session info and metadata.
- */
+  map.set(key, new Set([value]));
+}
+
+function uniqueSorted(values: Iterable<string>): string[] {
+  return [...new Set(values)].sort();
+}
+
+function sortSessionsByModifiedTime(sessions: SessionInfo[]): SessionInfo[] {
+  return [...sessions].sort((a, b) => b.modifiedTime.getTime() - a.modifiedTime.getTime());
+}
+
+async function analyzeMainSessions(
+  mainSessions: SessionInfo[]
+): Promise<Map<string, MainSessionAnalysis>> {
+  const analysisBySessionId = new Map<string, MainSessionAnalysis>();
+
+  for (const session of mainSessions) {
+    const { data: entries } = await parseJsonlFile(session.filePath);
+    analysisBySessionId.set(session.id, {
+      metadata: extractMetadata(entries),
+      explicitAgentIds: extractExplicitAgentIds(entries),
+    });
+  }
+
+  return analysisBySessionId;
+}
+
+function buildLinkContext(
+  projectSessions: SessionInfo[],
+  analysisBySessionId: Map<string, MainSessionAnalysis>
+): LinkContext {
+  const agentSessionsById = new Map<string, SessionInfo[]>();
+  const explicitAgentOwners = new Map<string, Set<string>>();
+  const nestedAgentIdsByOwner = new Map<string, Set<string>>();
+
+  for (const session of projectSessions) {
+    if (!session.isAgent || !session.agentId) {
+      continue;
+    }
+
+    pushToArrayMap(agentSessionsById, session.agentId, session);
+
+    if (session.nestedOwnerSessionId) {
+      pushToSetMap(nestedAgentIdsByOwner, session.nestedOwnerSessionId, session.agentId);
+    }
+  }
+
+  for (const [sessionId, analysis] of analysisBySessionId.entries()) {
+    for (const agentId of analysis.explicitAgentIds) {
+      pushToSetMap(explicitAgentOwners, agentId, sessionId);
+    }
+  }
+
+  return {
+    analysisBySessionId,
+    agentSessionsById,
+    explicitAgentOwners,
+    nestedAgentIdsByOwner,
+  };
+}
+
+async function getLinkContextForProject(
+  projectPath: string,
+  allSessions: SessionInfo[],
+  cache: Map<string, LinkContext>
+): Promise<LinkContext> {
+  const cached = cache.get(projectPath);
+  if (cached) {
+    return cached;
+  }
+
+  const projectSessions = allSessions.filter((session) => session.projectPath === projectPath);
+  const mainSessions = projectSessions.filter((session) => !session.isAgent);
+  const analysisBySessionId = await analyzeMainSessions(mainSessions);
+  const context = buildLinkContext(projectSessions, analysisBySessionId);
+  cache.set(projectPath, context);
+  return context;
+}
+
+function resolveAgentLinks(
+  info: SessionInfo,
+  context: LinkContext
+): {
+  agentIds: string[];
+  unresolvedAgentIds: string[];
+} {
+  if (info.isAgent) {
+    return { agentIds: [], unresolvedAgentIds: [] };
+  }
+
+  const explicitAgentIds = context.analysisBySessionId.get(info.id)?.explicitAgentIds ?? [];
+  const agentIds = new Set<string>();
+  const unresolvedAgentIds = new Set<string>();
+
+  for (const agentId of explicitAgentIds) {
+    if ((context.agentSessionsById.get(agentId) ?? []).length > 0) {
+      agentIds.add(agentId);
+      continue;
+    }
+
+    unresolvedAgentIds.add(agentId);
+  }
+
+  for (const agentId of context.nestedAgentIdsByOwner.get(info.id) ?? []) {
+    const explicitOwners = context.explicitAgentOwners.get(agentId);
+    if (explicitOwners && explicitOwners.size > 0 && !explicitOwners.has(info.id)) {
+      continue;
+    }
+
+    agentIds.add(agentId);
+    unresolvedAgentIds.delete(agentId);
+  }
+
+  return {
+    agentIds: uniqueSorted(agentIds),
+    unresolvedAgentIds: uniqueSorted(unresolvedAgentIds),
+  };
+}
+
+function buildSessionRecord(
+  info: SessionInfo,
+  messages: Message[],
+  metadata: SessionMetadata,
+  links: { agentIds: string[]; unresolvedAgentIds: string[] }
+): Session {
+  return {
+    id: info.id,
+    encodedPath: info.encodedPath,
+    projectPath: info.projectPath,
+    summary: metadata.summary,
+    timestamp: metadata.firstTimestamp ?? info.modifiedTime,
+    lastActivityAt: metadata.lastTimestamp ?? info.modifiedTime,
+    messageCount: metadata.messageCount,
+    version: metadata.version,
+    gitBranch: metadata.gitBranch,
+    agentIds: links.agentIds,
+    unresolvedAgentIds: links.unresolvedAgentIds,
+    messages,
+  };
+}
+
 async function buildSessionSummary(
   info: SessionInfo,
-  allSessions: SessionInfo[]
+  allSessions: SessionInfo[],
+  linkContextCache: Map<string, LinkContext>
 ): Promise<SessionSummary> {
-  const { data: metadata } = await parseSessionMetadata(info.filePath);
-
-  // Find linked agent sessions (for main sessions only)
-  const agentIds = info.isAgent ? [] : findLinkedAgentIds(info.id, allSessions);
+  const context = await getLinkContextForProject(info.projectPath, allSessions, linkContextCache);
+  const analysis = context.analysisBySessionId.get(info.id);
+  const metadata = analysis?.metadata ?? (await parseSessionMetadata(info.filePath)).data;
+  const links = resolveAgentLinks(info, context);
 
   return {
     id: info.id,
@@ -180,55 +334,63 @@ async function buildSessionSummary(
     timestamp: metadata.firstTimestamp ?? info.modifiedTime,
     lastActivityAt: metadata.lastTimestamp ?? info.modifiedTime,
     messageCount: metadata.messageCount,
-    agentIds,
+    agentIds: links.agentIds,
+    unresolvedAgentIds: links.unresolvedAgentIds,
   };
 }
+
+function normalizeAgentLookupId(agentId: string): string {
+  return agentId.startsWith('agent-') ? agentId.slice(6) : agentId;
+}
+
+function findAgentSessionMatches(agentId: string, allSessions: SessionInfo[]): SessionInfo[] {
+  const normalizedAgentId = normalizeAgentLookupId(agentId);
+  return allSessions.filter((session) => session.isAgent && session.agentId === normalizedAgentId);
+}
+
+async function loadSessionRecord(info: SessionInfo, allSessions: SessionInfo[]): Promise<Session> {
+  const [{ data: messages }, { data: metadata }] = await Promise.all([
+    parseSessionFile(info.filePath),
+    parseSessionMetadata(info.filePath),
+  ]);
+
+  if (info.isAgent) {
+    return buildSessionRecord(info, messages, metadata, {
+      agentIds: [],
+      unresolvedAgentIds: [],
+    });
+  }
+
+  const context = await getLinkContextForProject(info.projectPath, allSessions, new Map());
+  return buildSessionRecord(info, messages, metadata, resolveAgentLinks(info, context));
+}
+
+// =============================================================================
+// Session Listing
+// =============================================================================
 
 /**
  * List all sessions with pagination.
  *
  * Sessions are sorted by most recent activity first (descending timestamp).
  * Agent sessions are excluded from the main list (they're linked via agentIds).
- *
- * @param config - Optional configuration for filtering and pagination
- * @returns Paginated list of session summaries
- *
- * @example
- * ```typescript
- * // List first 10 sessions
- * const result = await listSessions({ limit: 10 });
- *
- * // List sessions for a specific workspace
- * const result = await listSessions({ workspace: '/path/to/project' });
- *
- * // Paginate through results
- * const page2 = await listSessions({ limit: 10, offset: 10 });
- * ```
  */
 export async function listSessions(
   config?: LibraryConfig
 ): Promise<PaginatedResult<SessionSummary>> {
   const resolved = resolveConfig(config);
-
-  // Validate data path exists
   await validateDataPath(resolved.dataPath);
 
-  // Discover all sessions
   const allSessions = await discoverSessions(resolved);
-
-  // Filter out agent sessions from main list (they're accessed via agentIds)
-  const mainSessions = allSessions.filter((s) => !s.isAgent);
-
-  // Sort by modification time descending (most recent first)
-  mainSessions.sort((a, b) => b.modifiedTime.getTime() - a.modifiedTime.getTime());
-
-  // Build summaries for paginated subset
+  const mainSessions = sortSessionsByModifiedTime(
+    allSessions.filter((session) => !session.isAgent)
+  );
   const paginatedInfos = paginate(mainSessions, resolved);
+  const linkContextCache = new Map<string, LinkContext>();
   const summaries: SessionSummary[] = [];
 
   for (const info of paginatedInfos) {
-    const summary = await buildSessionSummary(info, allSessions);
-    summaries.push(summary);
+    summaries.push(await buildSessionSummary(info, allSessions, linkContextCache));
   }
 
   return {
@@ -242,147 +404,48 @@ export async function listSessions(
 // =============================================================================
 
 /**
- * Get a session by index or UUID.
- *
- * @param identifier - Zero-based index or session UUID
- * @param config - Optional configuration
- * @returns Full session with all messages
- * @throws SessionNotFoundError if session doesn't exist
- *
- * @example
- * ```typescript
- * // Get most recent session by index
- * const session = await getSession(0);
- *
- * // Get session by UUID
- * const session = await getSession('abc123-def456-...');
- *
- * // Get session from specific workspace
- * const session = await getSession(0, { workspace: '/path/to/project' });
- * ```
+ * Get a session by index, UUID, partial UUID, or agent identifier.
  */
 export async function getSession(
   identifier: number | string,
   config?: LibraryConfig
 ): Promise<Session> {
   const resolved = resolveConfig(config);
-
-  // Validate data path exists
   await validateDataPath(resolved.dataPath);
 
-  // Discover all sessions
   const allSessions = await discoverSessions(resolved);
+  const mainSessions = sortSessionsByModifiedTime(
+    allSessions.filter((session) => !session.isAgent)
+  );
 
-  // Filter out agent sessions
-  const mainSessions = allSessions.filter((s) => !s.isAgent);
-
-  // Sort by modification time descending (most recent first)
-  mainSessions.sort((a, b) => b.modifiedTime.getTime() - a.modifiedTime.getTime());
+  if (typeof identifier === 'string' && identifier.startsWith('agent-')) {
+    return getAgentSession(identifier, config);
+  }
 
   let targetSession: SessionInfo | undefined;
 
   if (typeof identifier === 'number') {
-    // Get by index
     if (identifier < 0 || identifier >= mainSessions.length) {
       throw new SessionNotFoundError(identifier);
     }
     targetSession = mainSessions[identifier];
+  } else if (isUUID(identifier)) {
+    targetSession = mainSessions.find((session) => session.id === identifier);
+    if (!targetSession) {
+      throw new SessionNotFoundError(identifier);
+    }
   } else {
-    // Get by UUID - auto-detect if it's a UUID or agent ID
-    if (isUUID(identifier)) {
-      targetSession = mainSessions.find((s) => s.id === identifier);
-    } else if (identifier.startsWith('agent-')) {
-      // Looking for an agent session
-      targetSession = allSessions.find((s) => s.id === identifier);
-    } else {
-      // Try partial match on UUID
-      targetSession = mainSessions.find((s) => s.id.startsWith(identifier));
+    targetSession = mainSessions.find((session) => session.id.startsWith(identifier));
+    if (!targetSession) {
+      return getAgentSession(identifier, config);
     }
   }
 
-  // Check if session was found
   if (!targetSession) {
     throw new SessionNotFoundError(identifier);
   }
 
-  // Parse full session
-  const { data: messages } = await parseSessionFile(targetSession.filePath);
-
-  // Extract metadata from messages
-  const metadata = extractSessionMetadataFromMessages(messages, targetSession);
-
-  // Find linked agent IDs
-  const agentIds = targetSession.isAgent ? [] : findLinkedAgentIds(targetSession.id, allSessions);
-
-  return {
-    id: targetSession.id,
-    encodedPath: targetSession.encodedPath,
-    projectPath: targetSession.projectPath,
-    summary: metadata.summary,
-    timestamp: metadata.timestamp,
-    lastActivityAt: metadata.lastActivityAt,
-    messageCount: messages.filter(
-      (m) => m.type === 'user' || m.type === 'assistant' || m.type === 'progress'
-    ).length,
-    version: metadata.version,
-    gitBranch: metadata.gitBranch,
-    agentIds,
-    messages,
-  };
-}
-
-/**
- * Extract metadata from parsed messages.
- */
-function extractSessionMetadataFromMessages(
-  messages: Message[],
-  info: SessionInfo
-): {
-  summary: string | null;
-  timestamp: Date;
-  lastActivityAt: Date;
-  version: string;
-  gitBranch: string | null;
-} {
-  let summary: string | null = null;
-  const version = '';
-  let gitBranch: string | null = null;
-  let firstTimestamp: Date | null = null;
-  let lastTimestamp: Date | null = null;
-
-  for (const msg of messages) {
-    // Extract summary
-    if (msg.type === 'summary') {
-      summary = msg.summary;
-    }
-
-    // Track timestamps
-    if (msg.type === 'user' || msg.type === 'assistant' || msg.type === 'progress') {
-      if (!firstTimestamp || msg.timestamp < firstTimestamp) {
-        firstTimestamp = msg.timestamp;
-      }
-      if (!lastTimestamp || msg.timestamp > lastTimestamp) {
-        lastTimestamp = msg.timestamp;
-      }
-
-      // Extract git branch from user messages
-      if (msg.type === 'user') {
-        gitBranch ??= msg.gitBranch;
-      }
-
-      if (msg.type === 'progress') {
-        gitBranch ??= msg.gitBranch;
-      }
-    }
-  }
-
-  return {
-    summary,
-    timestamp: firstTimestamp ?? info.modifiedTime,
-    lastActivityAt: lastTimestamp ?? info.modifiedTime,
-    version,
-    gitBranch,
-  };
+  return loadSessionRecord(targetSession, allSessions);
 }
 
 /**
@@ -392,40 +455,32 @@ function extractSessionMetadataFromMessages(
  * @param config - Optional configuration
  * @returns Full agent session with all messages
  * @throws SessionNotFoundError if agent session doesn't exist
+ * @throws AmbiguousAgentSessionError if more than one transcript matches the same agent ID
  */
 export async function getAgentSession(agentId: string, config?: LibraryConfig): Promise<Session> {
-  // Normalize agent ID format
-  const normalizedId = agentId.startsWith('agent-') ? agentId : `agent-${agentId}`;
-
   const resolved = resolveConfig(config);
   await validateDataPath(resolved.dataPath);
 
   const allSessions = await discoverSessions(resolved);
-  const agentSession = allSessions.find((s) => s.id === normalizedId);
+  const matches = findAgentSessionMatches(agentId, allSessions);
 
+  if (matches.length === 0) {
+    throw new SessionNotFoundError(agentId);
+  }
+
+  if (matches.length > 1) {
+    throw new AmbiguousAgentSessionError(
+      normalizeAgentLookupId(agentId),
+      matches.map((session) => session.filePath)
+    );
+  }
+
+  const agentSession = matches[0];
   if (!agentSession) {
     throw new SessionNotFoundError(agentId);
   }
 
-  // Parse full session
-  const { data: messages } = await parseSessionFile(agentSession.filePath);
-  const metadata = extractSessionMetadataFromMessages(messages, agentSession);
-
-  return {
-    id: agentSession.id,
-    encodedPath: agentSession.encodedPath,
-    projectPath: agentSession.projectPath,
-    summary: metadata.summary,
-    timestamp: metadata.timestamp,
-    lastActivityAt: metadata.lastActivityAt,
-    messageCount: messages.filter(
-      (m) => m.type === 'user' || m.type === 'assistant' || m.type === 'progress'
-    ).length,
-    version: metadata.version,
-    gitBranch: metadata.gitBranch,
-    agentIds: [],
-    messages,
-  };
+  return loadSessionRecord(agentSession, allSessions);
 }
 
 // =============================================================================

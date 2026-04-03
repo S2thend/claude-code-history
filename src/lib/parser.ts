@@ -260,6 +260,10 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
 }
 
+function asNonEmptyString(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
 function extractMessageContent(value: unknown): unknown {
   const record = asRecord(value);
   if (!record) {
@@ -504,4 +508,48 @@ export async function parseSessionMetadata(
   const { data: entries, warnings } = await parseJsonlFile(filePath);
   const metadata = extractMetadata(entries);
   return { data: metadata, warnings };
+}
+
+// =============================================================================
+// Agent Link Extraction
+// =============================================================================
+
+function collectToolUseResultAgentId(value: unknown, agentIds: Set<string>): void {
+  const record = asRecord(value);
+  const agentId = asNonEmptyString(record?.agentId);
+
+  if (agentId) {
+    agentIds.add(agentId);
+  }
+}
+
+/**
+ * Extract explicit agent IDs referenced by a main session's raw entries.
+ *
+ * The canonical Claude shape records Task/subagent results on `toolUseResult.agentId`.
+ * Some nested progress shapes mirror the same payload under `data.toolUseResult`.
+ */
+export function extractExplicitAgentIds(entries: RawSessionEntry[]): string[] {
+  const agentIds = new Set<string>();
+
+  for (const entry of entries) {
+    collectToolUseResultAgentId(entry.toolUseResult, agentIds);
+
+    const data = asRecord(entry.data);
+    collectToolUseResultAgentId(data?.toolUseResult, agentIds);
+
+    const nestedMessages = Array.isArray(entry.normalizedMessages)
+      ? entry.normalizedMessages
+      : Array.isArray(data?.normalizedMessages)
+        ? data.normalizedMessages
+        : [];
+
+    for (const nestedMessage of nestedMessages) {
+      const messageRecord = asRecord(nestedMessage);
+      collectToolUseResultAgentId(messageRecord?.toolUseResult, agentIds);
+      collectToolUseResultAgentId(asRecord(messageRecord?.message)?.toolUseResult, agentIds);
+    }
+  }
+
+  return [...agentIds];
 }

@@ -124,6 +124,69 @@ function createRawSession(
   return sessionId;
 }
 
+function createNestedAgentSession(
+  projectPath: string,
+  ownerSessionId: string,
+  agentId: string,
+  contentText: string
+): void {
+  const encodedPath = projectPath.replace(/\//g, '-');
+  const subagentsDir = join(TEST_PROJECTS_DIR, encodedPath, ownerSessionId, 'subagents');
+  mkdirSync(subagentsDir, { recursive: true });
+
+  const entries = [
+    {
+      type: 'summary',
+      uuid: `summary-agent-${agentId}`,
+      parentUuid: null,
+      timestamp: new Date().toISOString(),
+      summary: `Agent session: ${agentId}`,
+      leafUuid: `agent-${agentId}-assistant`,
+    },
+    {
+      type: 'user',
+      uuid: `agent-${agentId}-user`,
+      parentUuid: null,
+      timestamp: new Date().toISOString(),
+      sessionId: ownerSessionId,
+      agentId,
+      cwd: projectPath,
+      gitBranch: 'main',
+      version: '2.0.0',
+      isSidechain: true,
+      message: {
+        role: 'user',
+        content: `Prompt for ${agentId}`,
+      },
+    },
+    {
+      type: 'assistant',
+      uuid: `agent-${agentId}-assistant`,
+      parentUuid: `agent-${agentId}-user`,
+      timestamp: new Date().toISOString(),
+      sessionId: ownerSessionId,
+      agentId,
+      message: {
+        role: 'assistant',
+        model: 'claude-3-haiku',
+        content: [{ type: 'text', text: contentText }],
+        stop_reason: 'end_turn',
+        usage: {
+          input_tokens: 10,
+          output_tokens: 20,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+        },
+      },
+    },
+  ];
+
+  writeFileSync(
+    join(subagentsDir, `agent-${agentId}.jsonl`),
+    entries.map(JSON.stringify).join('\n')
+  );
+}
+
 /**
  * Execute CLI command and return stdout/stderr
  */
@@ -491,6 +554,100 @@ describe('cch view', () => {
 
       expect(exitCode).toBe(0);
       expect(stdout).toContain('No messages match filter: progress');
+    });
+  });
+
+  describe('direct agent lookup', () => {
+    it('should open a linked nested agent transcript by bare agent ID', () => {
+      const ownerSessionId = createRawSession('/Users/dev/agent-project', 'agent-parent', [
+        {
+          type: 'assistant',
+          uuid: 'msg-agent-parent-001',
+          parentUuid: null,
+          timestamp: new Date().toISOString(),
+          message: {
+            role: 'assistant',
+            model: 'claude-3-sonnet',
+            content: [
+              {
+                type: 'tool_use',
+                id: 'toolu_agent_001',
+                name: 'Agent',
+                input: {
+                  description: 'Inspect nested agents',
+                  prompt: 'Inspect nested agents',
+                  subagent_type: 'Explore',
+                },
+              },
+            ],
+            stop_reason: 'tool_use',
+            usage: {
+              input_tokens: 1,
+              output_tokens: 1,
+              cache_creation_input_tokens: 0,
+              cache_read_input_tokens: 0,
+            },
+          },
+        },
+        {
+          type: 'user',
+          uuid: 'msg-agent-parent-002',
+          parentUuid: 'msg-agent-parent-001',
+          timestamp: new Date().toISOString(),
+          cwd: '/Users/dev/agent-project',
+          gitBranch: 'main',
+          message: {
+            role: 'user',
+            content: [{ type: 'tool_result', tool_use_id: 'toolu_agent_001', content: 'Done' }],
+          },
+          toolUseResult: {
+            status: 'completed',
+            agentId: 'agentlookup123',
+          },
+        },
+      ]);
+      createNestedAgentSession(
+        '/Users/dev/agent-project',
+        ownerSessionId,
+        'agentlookup123',
+        'Nested agent transcript content'
+      );
+
+      const { stdout, exitCode } = runCli('view agentlookup123 --full');
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Nested agent transcript content');
+    });
+
+    it('should return structured JSON ambiguity errors for duplicate agent IDs', () => {
+      const firstOwner = createTestSession('/Users/dev/duplicate-a', 'duplicate-a', [
+        { type: 'user', content: 'First duplicate parent' },
+      ]);
+      const secondOwner = createTestSession('/Users/dev/duplicate-b', 'duplicate-b', [
+        { type: 'user', content: 'Second duplicate parent' },
+      ]);
+      createNestedAgentSession('/Users/dev/duplicate-a', firstOwner, 'dupagent777', 'First dup');
+      createNestedAgentSession('/Users/dev/duplicate-b', secondOwner, 'dupagent777', 'Second dup');
+
+      const { stdout, exitCode } = runCli('view dupagent777 --json');
+      const json = JSON.parse(stdout);
+
+      expect(exitCode).not.toBe(0);
+      expect(json.success).toBe(false);
+      expect(json.error.type).toBe('ambiguous-agent-id');
+      expect(json.error.agentId).toBe('dupagent777');
+    });
+
+    it('should return structured JSON not-found errors for missing agent IDs', () => {
+      createTestSession('/Users/dev/project1', 'session-1', [{ type: 'user', content: 'Test' }]);
+
+      const { stdout, exitCode } = runCli('view missing456 --json');
+      const json = JSON.parse(stdout);
+
+      expect(exitCode).not.toBe(0);
+      expect(json.success).toBe(false);
+      expect(json.error.type).toBe('session-not-found');
+      expect(json.error.agentId).toBe('missing456');
     });
   });
 
