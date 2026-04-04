@@ -10,11 +10,18 @@ import {
   readFixture,
   writeProjectSessionFile,
 } from '../../helpers/agent-linking.js';
+import { buildLargeSessionJson } from '../../helpers/large-session-fixtures.js';
+import { samplePeakHeapBytes } from '../../helpers/parser-performance.js';
 
 const CLI_PATH = join(process.cwd(), 'dist', 'cli', 'index.js');
 const PERFORMANCE_PROJECT = '-tmp-performance-project';
 const PERFORMANCE_WORKSPACE = '/tmp/performance-project';
 const TOTAL_MAIN_SESSIONS = 101;
+const MEMORY_PROJECT = '-tmp-memory-project';
+const MEMORY_WORKSPACE = '/tmp/memory-project';
+const MEMORY_SESSION_COUNT = 1000;
+const LARGE_TRANSCRIPT_COUNT = 25;
+const HEAP_LIMIT_BYTES = 512 * 1024 * 1024;
 
 function buildPerformanceSessionId(index: number): string {
   return `bbbbbbbb-cccc-dddd-eeee-${index.toString().padStart(12, '0')}`;
@@ -26,6 +33,10 @@ function buildPerformanceSummary(index: number): string {
 
 function buildPerformanceTimestamp(index: number): string {
   return new Date(Date.UTC(2026, 3, 2, 0, Math.floor(index / 60), index % 60)).toISOString();
+}
+
+function buildMemorySessionId(index: number): string {
+  return `cccccccc-dddd-eeee-ffff-${index.toString().padStart(12, '0')}`;
 }
 
 function measure<T>(fn: () => T): { result: T; elapsedMs: number } {
@@ -103,8 +114,8 @@ describe('session lookup performance', () => {
       listSessions({ dataPath: testDataPath })
     );
 
-    expect(sessions.pagination.total).toBe(TOTAL_MAIN_SESSIONS + 1);
-    expect(sessions.data.length).toBe(TOTAL_MAIN_SESSIONS + 1);
+    expect(sessions.pagination.total).toBe(TOTAL_MAIN_SESSIONS + 2);
+    expect(sessions.data.length).toBe(TOTAL_MAIN_SESSIONS + 2);
     expect(elapsedMs).toBeLessThan(1000);
   });
 
@@ -145,4 +156,91 @@ describe('session lookup performance', () => {
     expect(parsed.data?.id).toBe('agent-linked123');
     expect(elapsedMs).toBeLessThan(1000);
   });
+});
+
+describe('session listing heap regression', () => {
+  let testDataPath = '';
+
+  beforeAll(async () => {
+    const tempData = await createTempClaudeData('claude-memory-listing-');
+    testDataPath = tempData.dataPath;
+
+    for (let index = 1; index <= MEMORY_SESSION_COUNT; index++) {
+      const sessionId = buildMemorySessionId(index);
+      const timestamp = buildPerformanceTimestamp(index);
+      const fileName = `${sessionId}.jsonl`;
+
+      if (index < LARGE_TRANSCRIPT_COUNT) {
+        await writeProjectSessionFile(
+          tempData.projectsPath,
+          MEMORY_PROJECT,
+          fileName,
+          buildLargeSessionJson({
+            sessionId,
+            projectPath: MEMORY_WORKSPACE,
+            timestamp,
+            summary: `Large memory session ${index}`,
+            userPayloadSize: 256 * 1024,
+            assistantPayloadSize: 256 * 1024,
+            toolResultPayloadSize: 256 * 1024,
+            userMessageCount: 2,
+          })
+        );
+        continue;
+      }
+
+      if (index === LARGE_TRANSCRIPT_COUNT) {
+        await writeProjectSessionFile(
+          tempData.projectsPath,
+          MEMORY_PROJECT,
+          fileName,
+          buildLargeSessionJson({
+            sessionId,
+            projectPath: MEMORY_WORKSPACE,
+            timestamp,
+            summary: `Large memory session ${index}`,
+            userPayloadSize: 1024 * 1024,
+            assistantPayloadSize: 1024 * 1024,
+            toolResultPayloadSize: 1024 * 1024,
+            userMessageCount: 220,
+          })
+        );
+        continue;
+      }
+
+      await writeProjectSessionFile(
+        tempData.projectsPath,
+        MEMORY_PROJECT,
+        fileName,
+        buildSimpleSessionJson(
+          sessionId,
+          MEMORY_WORKSPACE,
+          `Memory session ${index}`,
+          timestamp
+        )
+      );
+    }
+  }, 120000);
+
+  afterAll(async () => {
+    await cleanupTempClaudeData(testDataPath);
+  });
+
+  it(
+    'should list 1,000 sessions at or below 512 MiB peak heap while preserving summary rows',
+    async () => {
+      const { result, peakHeapBytes } = await samplePeakHeapBytes(
+        () => listSessions({ dataPath: testDataPath }),
+        1
+      );
+
+      expect(result.data).toHaveLength(MEMORY_SESSION_COUNT);
+      expect(result.pagination.total).toBe(MEMORY_SESSION_COUNT);
+      expect(result.data.some((session) => session.summary === 'Large memory session 25')).toBe(
+        true
+      );
+      expect(peakHeapBytes).toBeLessThanOrEqual(HEAP_LIMIT_BYTES);
+    },
+    120000
+  );
 });

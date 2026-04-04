@@ -48,6 +48,9 @@ export interface SessionSummary {
   /** Human-readable session title */
   summary: string | null;
 
+  /** Derived fallback text from the first user-authored string message */
+  preview: string | null;
+
   /** Session start time */
   timestamp: Date;
 

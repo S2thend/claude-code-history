@@ -34,6 +34,10 @@ import type {
   ParseWarning,
 } from './types.js';
 
+const PREVIEW_MAX_LENGTH = 200;
+
+type JsonlEntryVisitor<TState> = (entry: RawSessionEntry, state: TState) => void;
+
 // =============================================================================
 // Raw Entry Parsing
 // =============================================================================
@@ -72,12 +76,17 @@ export function parseJsonLine(
 }
 
 /**
- * Parse all lines from a JSONL file.
+ * Stream all valid JSONL entries through an accumulator callback.
  * @param filePath - Path to the JSONL session file
- * @returns Array of raw entries and any parse warnings
+ * @param initialState - Mutable scan accumulator
+ * @param visitEntry - Callback invoked for each valid parsed entry
+ * @returns Final accumulator state and any parse warnings
  */
-export async function parseJsonlFile(filePath: string): Promise<ParseResult<RawSessionEntry[]>> {
-  const entries: RawSessionEntry[] = [];
+export async function scanJsonlFile<TState>(
+  filePath: string,
+  initialState: TState,
+  visitEntry: JsonlEntryVisitor<TState>
+): Promise<ParseResult<TState>> {
   const warnings: ParseWarning[] = [];
 
   const fileStream = createReadStream(filePath, { encoding: 'utf-8' });
@@ -93,14 +102,25 @@ export async function parseJsonlFile(filePath: string): Promise<ParseResult<RawS
     const result = parseJsonLine(line, lineNumber);
 
     if (result.entry) {
-      entries.push(result.entry);
+      visitEntry(result.entry, initialState);
     } else if (result.warning && result.warning.error !== 'Empty line') {
       // Only track non-empty line warnings
       warnings.push(result.warning);
     }
   }
 
-  return { data: entries, warnings };
+  return { data: initialState, warnings };
+}
+
+/**
+ * Parse all lines from a JSONL file.
+ * @param filePath - Path to the JSONL session file
+ * @returns Array of raw entries and any parse warnings
+ */
+export async function parseJsonlFile(filePath: string): Promise<ParseResult<RawSessionEntry[]>> {
+  return scanJsonlFile(filePath, [] as RawSessionEntry[], (entry, entries) => {
+    entries.push(entry);
+  });
 }
 
 // =============================================================================
@@ -264,6 +284,55 @@ function asNonEmptyString(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
+function normalizePreviewText(value: string): string | null {
+  let preview = '';
+  let hasContent = false;
+  let pendingSpace = false;
+  let visibleLength = 0;
+
+  for (const char of value) {
+    if (/\s/.test(char)) {
+      if (hasContent) {
+        pendingSpace = true;
+      }
+      continue;
+    }
+
+    if (pendingSpace) {
+      if (visibleLength >= PREVIEW_MAX_LENGTH) {
+        break;
+      }
+      preview += ' ';
+      visibleLength++;
+      pendingSpace = false;
+    }
+
+    if (visibleLength >= PREVIEW_MAX_LENGTH) {
+      break;
+    }
+
+    preview += char;
+    hasContent = true;
+    visibleLength++;
+  }
+
+  const normalized = preview.trimEnd();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function extractPreview(entry: RawSessionEntry): string | null {
+  if (entry.type !== 'user') {
+    return null;
+  }
+
+  const message = entry.message as RawMessage | undefined;
+  if (typeof message?.content !== 'string') {
+    return null;
+  }
+
+  return normalizePreviewText(message.content);
+}
+
 function extractMessageContent(value: unknown): unknown {
   const record = asRecord(value);
   if (!record) {
@@ -401,18 +470,8 @@ export function transformEntry(entry: RawSessionEntry): Message | null {
  * @returns Parsed messages and warnings
  */
 export async function parseSessionFile(filePath: string): Promise<ParseResult<Message[]>> {
-  const { data: entries, warnings } = await parseJsonlFile(filePath);
-
-  const messages: Message[] = [];
-
-  for (const entry of entries) {
-    const message = transformEntry(entry);
-    if (message) {
-      messages.push(message);
-    }
-  }
-
-  return { data: messages, warnings };
+  const { data, warnings } = await parseSessionFileWithMetadata(filePath);
+  return { data: data.messages, warnings };
 }
 
 // =============================================================================
@@ -425,6 +484,7 @@ export async function parseSessionFile(filePath: string): Promise<ParseResult<Me
  */
 export interface SessionMetadata {
   summary: string | null;
+  preview: string | null;
   version: string;
   gitBranch: string | null;
   sessionId: string | null;
@@ -434,67 +494,88 @@ export interface SessionMetadata {
   messageCount: number;
 }
 
+export interface SessionSummaryScanResult {
+  metadata: SessionMetadata;
+  explicitAgentIds: string[];
+}
+
+export interface SessionFileScanResult {
+  messages: Message[];
+  metadata: SessionMetadata;
+  explicitAgentIds: string[];
+}
+
+function createEmptySessionMetadata(): SessionMetadata {
+  return {
+    summary: null,
+    preview: null,
+    version: '',
+    gitBranch: null,
+    sessionId: null,
+    agentId: null,
+    firstTimestamp: null,
+    lastTimestamp: null,
+    messageCount: 0,
+  };
+}
+
+function updateMetadataFromEntry(metadata: SessionMetadata, entry: RawSessionEntry): void {
+  if (entry.type === 'summary' && entry.summary) {
+    metadata.summary = entry.summary;
+  }
+
+  if (entry.version && !metadata.version) {
+    metadata.version = entry.version;
+  }
+  if (entry.gitBranch !== undefined && metadata.gitBranch === null) {
+    metadata.gitBranch = entry.gitBranch;
+  }
+  if (entry.sessionId && !metadata.sessionId) {
+    metadata.sessionId = entry.sessionId;
+  }
+  if (entry.agentId && !metadata.agentId) {
+    metadata.agentId = entry.agentId;
+  }
+
+  if (entry.type !== 'user' && entry.type !== 'assistant' && entry.type !== 'progress') {
+    return;
+  }
+
+  metadata.messageCount++;
+
+  if (entry.timestamp) {
+    const timestamp = new Date(entry.timestamp);
+    if (!Number.isNaN(timestamp.getTime())) {
+      if (!metadata.firstTimestamp || timestamp < metadata.firstTimestamp) {
+        metadata.firstTimestamp = timestamp;
+      }
+      if (!metadata.lastTimestamp || timestamp > metadata.lastTimestamp) {
+        metadata.lastTimestamp = timestamp;
+      }
+    }
+  }
+
+  if (metadata.preview === null) {
+    const preview = extractPreview(entry);
+    if (preview !== null) {
+      metadata.preview = preview;
+    }
+  }
+}
+
 /**
  * Extract metadata from raw session entries.
  * @param entries - Raw parsed entries
  * @returns Session metadata
  */
 export function extractMetadata(entries: RawSessionEntry[]): SessionMetadata {
-  let summary: string | null = null;
-  let version = '';
-  let gitBranch: string | null = null;
-  let sessionId: string | null = null;
-  let agentId: string | null = null;
-  let firstTimestamp: Date | null = null;
-  let lastTimestamp: Date | null = null;
-  let messageCount = 0;
+  const metadata = createEmptySessionMetadata();
 
   for (const entry of entries) {
-    // Extract summary from summary entry
-    if (entry.type === 'summary' && entry.summary) {
-      summary = entry.summary;
-    }
-
-    // Extract version and git branch from any entry that has them
-    if (entry.version && !version) {
-      version = entry.version;
-    }
-    if (entry.gitBranch !== undefined && gitBranch === null) {
-      gitBranch = entry.gitBranch;
-    }
-    if (entry.sessionId && !sessionId) {
-      sessionId = entry.sessionId;
-    }
-    if (entry.agentId && !agentId) {
-      agentId = entry.agentId;
-    }
-
-    // Track timestamps for displayable transcript messages only
-    if (entry.type === 'user' || entry.type === 'assistant' || entry.type === 'progress') {
-      messageCount++;
-
-      if (entry.timestamp) {
-        const ts = new Date(entry.timestamp);
-        if (!firstTimestamp || ts < firstTimestamp) {
-          firstTimestamp = ts;
-        }
-        if (!lastTimestamp || ts > lastTimestamp) {
-          lastTimestamp = ts;
-        }
-      }
-    }
+    updateMetadataFromEntry(metadata, entry);
   }
 
-  return {
-    summary,
-    version,
-    gitBranch,
-    sessionId,
-    agentId,
-    firstTimestamp,
-    lastTimestamp,
-    messageCount,
-  };
+  return metadata;
 }
 
 /**
@@ -505,9 +586,9 @@ export function extractMetadata(entries: RawSessionEntry[]): SessionMetadata {
 export async function parseSessionMetadata(
   filePath: string
 ): Promise<ParseResult<SessionMetadata>> {
-  const { data: entries, warnings } = await parseJsonlFile(filePath);
-  const metadata = extractMetadata(entries);
-  return { data: metadata, warnings };
+  return scanJsonlFile(filePath, createEmptySessionMetadata(), (entry, metadata) => {
+    updateMetadataFromEntry(metadata, entry);
+  });
 }
 
 // =============================================================================
@@ -523,6 +604,25 @@ function collectToolUseResultAgentId(value: unknown, agentIds: Set<string>): voi
   }
 }
 
+function collectExplicitAgentIdsFromEntry(entry: RawSessionEntry, agentIds: Set<string>): void {
+  collectToolUseResultAgentId(entry.toolUseResult, agentIds);
+
+  const data = asRecord(entry.data);
+  collectToolUseResultAgentId(data?.toolUseResult, agentIds);
+
+  const nestedMessages = Array.isArray(entry.normalizedMessages)
+    ? entry.normalizedMessages
+    : Array.isArray(data?.normalizedMessages)
+      ? data.normalizedMessages
+      : [];
+
+  for (const nestedMessage of nestedMessages) {
+    const messageRecord = asRecord(nestedMessage);
+    collectToolUseResultAgentId(messageRecord?.toolUseResult, agentIds);
+    collectToolUseResultAgentId(asRecord(messageRecord?.message)?.toolUseResult, agentIds);
+  }
+}
+
 /**
  * Extract explicit agent IDs referenced by a main session's raw entries.
  *
@@ -533,23 +633,69 @@ export function extractExplicitAgentIds(entries: RawSessionEntry[]): string[] {
   const agentIds = new Set<string>();
 
   for (const entry of entries) {
-    collectToolUseResultAgentId(entry.toolUseResult, agentIds);
-
-    const data = asRecord(entry.data);
-    collectToolUseResultAgentId(data?.toolUseResult, agentIds);
-
-    const nestedMessages = Array.isArray(entry.normalizedMessages)
-      ? entry.normalizedMessages
-      : Array.isArray(data?.normalizedMessages)
-        ? data.normalizedMessages
-        : [];
-
-    for (const nestedMessage of nestedMessages) {
-      const messageRecord = asRecord(nestedMessage);
-      collectToolUseResultAgentId(messageRecord?.toolUseResult, agentIds);
-      collectToolUseResultAgentId(asRecord(messageRecord?.message)?.toolUseResult, agentIds);
-    }
+    collectExplicitAgentIdsFromEntry(entry, agentIds);
   }
 
   return [...agentIds];
+}
+
+/**
+ * Parse summary metadata and explicit agent links in one transcript scan.
+ * @param filePath - Path to the JSONL session file
+ * @returns Summary metadata, explicit agent IDs, and parse warnings
+ */
+export async function parseSessionSummary(
+  filePath: string
+): Promise<ParseResult<SessionSummaryScanResult>> {
+  const initialState = {
+    metadata: createEmptySessionMetadata(),
+    explicitAgentIds: new Set<string>(),
+  };
+
+  const { data, warnings } = await scanJsonlFile(filePath, initialState, (entry, state) => {
+    updateMetadataFromEntry(state.metadata, entry);
+    collectExplicitAgentIdsFromEntry(entry, state.explicitAgentIds);
+  });
+
+  return {
+    data: {
+      metadata: data.metadata,
+      explicitAgentIds: [...data.explicitAgentIds],
+    },
+    warnings,
+  };
+}
+
+/**
+ * Parse full messages, metadata, and explicit agent links in one transcript scan.
+ * @param filePath - Path to the JSONL session file
+ * @returns Full detail scan result and parse warnings
+ */
+export async function parseSessionFileWithMetadata(
+  filePath: string
+): Promise<ParseResult<SessionFileScanResult>> {
+  const initialState = {
+    messages: [] as Message[],
+    metadata: createEmptySessionMetadata(),
+    explicitAgentIds: new Set<string>(),
+  };
+
+  const { data, warnings } = await scanJsonlFile(filePath, initialState, (entry, state) => {
+    updateMetadataFromEntry(state.metadata, entry);
+    collectExplicitAgentIdsFromEntry(entry, state.explicitAgentIds);
+
+    const message = transformEntry(entry);
+    if (message) {
+      state.messages.push(message);
+    }
+  });
+
+  return {
+    data: {
+      messages: data.messages,
+      metadata: data.metadata,
+      explicitAgentIds: [...data.explicitAgentIds],
+    },
+    warnings,
+  };
 }

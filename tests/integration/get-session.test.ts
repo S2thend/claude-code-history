@@ -24,6 +24,7 @@ const LONG_TOOL_RESULT = ['line-1', `tool-result ${'y'.repeat(1200)}...source`, 
   '\n'
 );
 const LONG_THINKING_TEXT = `reasoning ${'z'.repeat(1200)}`;
+const LONG_PREVIEW = LONG_TEXT.slice(0, 200);
 const LONG_TOOL_INPUT = {
   file_path: '/test/project/long-file.txt',
   old_string: `old ${'a'.repeat(1200)}\n下一行`,
@@ -291,6 +292,9 @@ describe('getSession', () => {
       const session = await getSession(sessionUuid4, { dataPath: testDataPath });
 
       expect(session.summary).toBe('Long content fixture');
+      expect(session.preview).toBe(LONG_PREVIEW);
+      expect(session.gitBranch).toBe('main');
+      expect(session.version).toBe('2.0.55');
       expect(session.messages).toHaveLength(4);
       expect(session.messageCount).toBe(3);
 
@@ -461,6 +465,9 @@ describe('getAgentSession', () => {
     const session = await getAgentSession(longAgentSessionId, { dataPath: testDataPath });
 
     expect(session.summary).toBe('Long agent task');
+    expect(session.preview).toBe(LONG_PREVIEW);
+    expect(session.agentIds).toEqual([]);
+    expect(session.unresolvedAgentIds).toEqual([]);
     expect(session.messages).toHaveLength(4);
 
     const userMessage = session.messages.find((message) => message.uuid === 'long-agent-msg-001');

@@ -38,10 +38,17 @@ describe('anonymized Claude contract fixtures', () => {
 
   it('should discover nested contract fixtures and link the main session to its child agent', async () => {
     const result = await listSessions({ dataPath: testDataPath });
+    const mainSession = result.data.find(
+      (session) => session.id === 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+    );
+    const agentSession = result.data.find((session) => session.id === 'agent-contract123');
 
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0]?.agentIds).toEqual(['contract123']);
-    expect(result.data[0]?.unresolvedAgentIds).toEqual([]);
+    expect(result.data).toHaveLength(2);
+    expect(mainSession?.agentIds).toEqual(['contract123']);
+    expect(mainSession?.unresolvedAgentIds).toEqual([]);
+    expect(agentSession).toBeDefined();
+    expect(agentSession?.agentIds).toEqual([]);
+    expect(agentSession?.unresolvedAgentIds).toEqual([]);
   });
 
   it('should retrieve the main session with linked agent metadata from the contract fixture', async () => {

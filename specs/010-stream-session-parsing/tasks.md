@@ -24,8 +24,8 @@
 
 **Purpose**: Prepare large-transcript fixture and parser-scan instrumentation helpers used by all story tests.
 
-- [ ] T001 [P] Create large synthetic JSONL fixture builders for long user/tool payloads and untitled sessions in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/helpers/large-session-fixtures.ts`
-- [ ] T002 [P] Create parser scan-count and heap-sampling test helpers for one-pass and 512 MiB regression checks in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/helpers/parser-performance.ts`
+- [X] T001 [P] Create large synthetic JSONL fixture builders for long user/tool payloads and untitled sessions in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/helpers/large-session-fixtures.ts`
+- [X] T002 [P] Create parser scan-count and heap-sampling test helpers for one-pass and 512 MiB regression checks in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/helpers/parser-performance.ts`
 
 ---
 
@@ -35,11 +35,11 @@
 
 **CRITICAL**: Do not start story implementation until this phase is complete.
 
-- [ ] T003 [P] Add failing parser unit tests for one-pass line scanning, bounded preview normalization, and malformed-line recovery in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/unit/parser.test.ts`
-- [ ] T004 [P] Add failing session orchestration unit tests for summary preview propagation and one-pass detail parser usage in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/unit/session.test.ts`
-- [ ] T005 [P] Add additive `preview: string | null` to `SessionSummary` and inherited `Session` docs in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/types.ts`
-- [ ] T006 Implement a reusable one-pass JSONL scan helper that forwards each valid `RawSessionEntry` to an accumulator callback and drops the raw entry immediately in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/parser.ts`
-- [ ] T007 Extend `SessionMetadata` and parser accumulator helpers with first-user `preview` extraction, first/last timestamps, message counts, and version/branch/session IDs in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/parser.ts`
+- [X] T003 [P] Add failing parser unit tests for one-pass line scanning, bounded preview normalization, and malformed-line recovery in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/unit/parser.test.ts`
+- [X] T004 [P] Add failing session orchestration unit tests for summary preview propagation and one-pass detail parser usage in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/unit/session.test.ts`
+- [X] T005 [P] Add additive `preview: string | null` to `SessionSummary` and inherited `Session` docs in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/types.ts`
+- [X] T006 Implement a reusable one-pass JSONL scan helper that forwards each valid `RawSessionEntry` to an accumulator callback and drops the raw entry immediately in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/parser.ts`
+- [X] T007 Extend `SessionMetadata` and parser accumulator helpers with first-user `preview` extraction, first/last timestamps, message counts, and version/branch/session IDs in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/parser.ts`
 
 **Checkpoint**: Foundation ready when parser and type primitives compile and the new foundational tests fail only on unimplemented story behavior.
 
@@ -53,13 +53,13 @@
 
 ### Tests for User Story 1
 
-- [ ] T008 [P] [US1] Add failing `listSessions()` integration tests for top-level agent-session rows, untitled-session `preview`, agent link metadata, malformed-line recovery, and title/preview precedence in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/list-sessions.test.ts`
-- [ ] T009 [P] [US1] Add a failing 1,000-session performance regression test that asserts `listSessions()` peak memory stays at or below 512 MiB while preserving summary rows in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/performance/session-lookup.test.ts`
+- [X] T008 [P] [US1] Add failing `listSessions()` integration tests for top-level agent-session rows, untitled-session `preview`, agent link metadata, malformed-line recovery, and title/preview precedence in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/list-sessions.test.ts`
+- [X] T009 [P] [US1] Add a failing 1,000-session performance regression test that asserts `listSessions()` peak memory stays at or below 512 MiB while preserving summary rows in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/performance/session-lookup.test.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Implement one-pass summary/link parsing that derives `summary`, bounded `preview`, timestamps, message counts, branch/version metadata, and explicit agent IDs without `RawSessionEntry[]` accumulation in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/parser.ts`
-- [ ] T011 [US1] Rewire `analyzeMainSessions()`, `buildSessionSummary()`, and `listSessions()` to consume the one-pass summary parser, return top-level rows for both main and agent sessions, and populate `SessionSummary.preview` while preserving pagination, sorting, workspace filtering, and main-session agent-link resolution in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/session.ts`
+- [X] T010 [US1] Implement one-pass summary/link parsing that derives `summary`, bounded `preview`, timestamps, message counts, branch/version metadata, and explicit agent IDs without `RawSessionEntry[]` accumulation in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/parser.ts`
+- [X] T011 [US1] Rewire `analyzeMainSessions()`, `buildSessionSummary()`, and `listSessions()` to consume the one-pass summary parser, return top-level rows for both main and agent sessions, and populate `SessionSummary.preview` while preserving pagination, sorting, workspace filtering, and main-session agent-link resolution in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/session.ts`
 
 **Checkpoint**: `US1` is complete when summary listing includes main and agent rows, remains read-only, is preview-aware, and stays under the 512 MiB large-fixture ceiling.
 
@@ -73,13 +73,13 @@
 
 ### Tests for User Story 2
 
-- [ ] T012 [P] [US2] Add failing instrumentation tests proving one `getSession()` or `getAgentSession()` request does not parse the same target transcript more than once in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/unit/session.test.ts`
-- [ ] T013 [P] [US2] Add failing large-payload integration tests verifying full-fidelity `messages`, metadata, and inherited `preview` for `getSession()` and `getAgentSession()` in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/get-session.test.ts`
+- [X] T012 [P] [US2] Add failing instrumentation tests proving one `getSession()` or `getAgentSession()` request does not parse the same target transcript more than once in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/unit/session.test.ts`
+- [X] T013 [P] [US2] Add failing large-payload integration tests verifying full-fidelity `messages`, metadata, and inherited `preview` for `getSession()` and `getAgentSession()` in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/get-session.test.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] Implement a one-pass full-detail parser that transforms `messages[]` and derives `SessionMetadata` plus `preview` in the same scan without retaining a full raw-entry array in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/parser.ts`
-- [ ] T015 [US2] Replace `loadSessionRecord()` duplicate `Promise.all([parseSessionFile, parseSessionMetadata])` parsing with the one-pass detail parser for both main and agent sessions in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/session.ts`
+- [X] T014 [US2] Implement a one-pass full-detail parser that transforms `messages[]` and derives `SessionMetadata` plus `preview` in the same scan without retaining a full raw-entry array in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/parser.ts`
+- [X] T015 [US2] Replace `loadSessionRecord()` duplicate `Promise.all([parseSessionFile, parseSessionMetadata])` parsing with the one-pass detail parser for both main and agent sessions in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/session.ts`
 
 **Checkpoint**: `US2` is complete when every detail lookup preserves full transcript fidelity and one parser pass per target file.
 
@@ -93,14 +93,14 @@
 
 ### Tests for User Story 3
 
-- [ ] T016 [P] [US3] Add failing formatter unit tests for `summary ?? preview ?? '(No summary)'` fallback behavior and 200-character preview display truncation in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/unit/cli/formatters/table.test.ts`
-- [ ] T017 [P] [US3] Add failing `cch list --json` and human-readable CLI integration tests proving `preview` is present, `(No summary)` is used when no title/preview exists, top-level agent rows are listed, and untitled rows do not require fallback `getSession()` reads when `--stats` is not used in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/cli/list.test.ts`
-- [ ] T018 [US3] Add a failing baseline-vs-new regression test that compares fallback detail-fetch counts on the same untitled-session fixture and asserts at least 90% reduction in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/cli/list.test.ts`
+- [X] T016 [P] [US3] Add failing formatter unit tests for `summary ?? preview ?? '(No summary)'` fallback behavior and 200-character preview display truncation in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/unit/cli/formatters/table.test.ts`
+- [X] T017 [P] [US3] Add failing `cch list --json` and human-readable CLI integration tests proving `preview` is present, `(No summary)` is used when no title/preview exists, top-level agent rows are listed, and untitled rows do not require fallback `getSession()` reads when `--stats` is not used in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/cli/list.test.ts`
+- [X] T018 [US3] Add a failing baseline-vs-new regression test that compares fallback detail-fetch counts on the same untitled-session fixture and asserts at least 90% reduction in `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/integration/cli/list.test.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T019 [US3] Render `summary`, then `preview`, then `(No summary)` in `getDisplaySummary()` while keeping table truncation display-only in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/cli/formatters/table.ts`
-- [ ] T020 [US3] Preserve summary-only `cch list` execution when `--stats` is absent, include top-level agent rows from the library response, and avoid introducing any untitled-session fallback `getSession()` reads in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/cli/commands/list.ts`
+- [X] T019 [US3] Render `summary`, then `preview`, then `(No summary)` in `getDisplaySummary()` while keeping table truncation display-only in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/cli/formatters/table.ts`
+- [X] T020 [US3] Preserve summary-only `cch list` execution when `--stats` is absent, include top-level agent rows from the library response, and avoid introducing any untitled-session fallback `getSession()` reads in `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/cli/commands/list.ts`
 
 **Checkpoint**: `US3` is complete when listing output and JSON summaries provide fallback preview text without per-row detail fetches.
 
@@ -110,9 +110,9 @@
 
 **Purpose**: Finalize docs, audit for leftover full-array parsing, and run the full validation suite.
 
-- [ ] T021 [P] Update `/Users/borui/Devs/vibe-coding-history/claude-code-history/specs/010-stream-session-parsing/quickstart.md`, `/Users/borui/Devs/vibe-coding-history/claude-code-history/specs/010-stream-session-parsing/contracts/library-api.md`, and `/Users/borui/Devs/vibe-coding-history/claude-code-history/specs/010-stream-session-parsing/contracts/cli-interface.md` if parser/helper names or observable behavior changed during implementation
-- [ ] T022 Audit `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/parser.ts` and `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/session.ts` for leftover whole-file `RawSessionEntry[]` retention or duplicate target-file parses and remove any remaining hot paths
-- [ ] T023 Run `npm run typecheck`, `npm test`, and `npm run lint` using `/Users/borui/Devs/vibe-coding-history/claude-code-history/package.json` and fix any failures under `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/` or `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/`
+- [X] T021 [P] Update `/Users/borui/Devs/vibe-coding-history/claude-code-history/specs/010-stream-session-parsing/quickstart.md`, `/Users/borui/Devs/vibe-coding-history/claude-code-history/specs/010-stream-session-parsing/contracts/library-api.md`, and `/Users/borui/Devs/vibe-coding-history/claude-code-history/specs/010-stream-session-parsing/contracts/cli-interface.md` if parser/helper names or observable behavior changed during implementation
+- [X] T022 Audit `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/parser.ts` and `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/lib/session.ts` for leftover whole-file `RawSessionEntry[]` retention or duplicate target-file parses and remove any remaining hot paths
+- [X] T023 Run `npm run typecheck`, `npm test`, and `npm run lint` using `/Users/borui/Devs/vibe-coding-history/claude-code-history/package.json` and fix any failures under `/Users/borui/Devs/vibe-coding-history/claude-code-history/src/` or `/Users/borui/Devs/vibe-coding-history/claude-code-history/tests/`
 
 ---
 

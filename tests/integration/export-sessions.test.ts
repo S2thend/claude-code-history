@@ -413,7 +413,7 @@ describe('export functions', () => {
       const sessions = JSON.parse(json);
 
       expect(Array.isArray(sessions)).toBe(true);
-      expect(sessions.length).toBe(5);
+      expect(sessions.length).toBe(6);
     });
 
     it('should include all sessions', async () => {
@@ -426,6 +426,7 @@ describe('export functions', () => {
       expect(ids).toContain(sessionUuid3);
       expect(ids).toContain(sessionUuid4);
       expect(ids).toContain(sessionUuid5);
+      expect(ids).toContain('agent-abc123');
     });
   });
 

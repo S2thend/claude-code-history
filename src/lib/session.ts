@@ -29,11 +29,9 @@ import {
   getAgentStorageLayout,
 } from './platform.js';
 import {
-  extractExplicitAgentIds,
-  extractMetadata,
-  parseJsonlFile,
-  parseSessionFile,
+  parseSessionFileWithMetadata,
   parseSessionMetadata,
+  parseSessionSummary,
   type SessionMetadata,
 } from './parser.js';
 import { AmbiguousAgentSessionError, DataNotFoundError, SessionNotFoundError } from './errors.js';
@@ -187,16 +185,18 @@ function sortSessionsByModifiedTime(sessions: SessionInfo[]): SessionInfo[] {
 }
 
 async function analyzeMainSessions(
-  mainSessions: SessionInfo[]
+  mainSessions: SessionInfo[],
+  preloadedAnalysisBySessionId = new Map<string, MainSessionAnalysis>()
 ): Promise<Map<string, MainSessionAnalysis>> {
-  const analysisBySessionId = new Map<string, MainSessionAnalysis>();
+  const analysisBySessionId = new Map<string, MainSessionAnalysis>(preloadedAnalysisBySessionId);
 
   for (const session of mainSessions) {
-    const { data: entries } = await parseJsonlFile(session.filePath);
-    analysisBySessionId.set(session.id, {
-      metadata: extractMetadata(entries),
-      explicitAgentIds: extractExplicitAgentIds(entries),
-    });
+    if (analysisBySessionId.has(session.id)) {
+      continue;
+    }
+
+    const { data } = await parseSessionSummary(session.filePath);
+    analysisBySessionId.set(session.id, data);
   }
 
   return analysisBySessionId;
@@ -239,7 +239,8 @@ function buildLinkContext(
 async function getLinkContextForProject(
   projectPath: string,
   allSessions: SessionInfo[],
-  cache: Map<string, LinkContext>
+  cache: Map<string, LinkContext>,
+  preloadedAnalysisBySessionId = new Map<string, MainSessionAnalysis>()
 ): Promise<LinkContext> {
   const cached = cache.get(projectPath);
   if (cached) {
@@ -248,7 +249,7 @@ async function getLinkContextForProject(
 
   const projectSessions = allSessions.filter((session) => session.projectPath === projectPath);
   const mainSessions = projectSessions.filter((session) => !session.isAgent);
-  const analysisBySessionId = await analyzeMainSessions(mainSessions);
+  const analysisBySessionId = await analyzeMainSessions(mainSessions, preloadedAnalysisBySessionId);
   const context = buildLinkContext(projectSessions, analysisBySessionId);
   cache.set(projectPath, context);
   return context;
@@ -305,6 +306,7 @@ function buildSessionRecord(
     encodedPath: info.encodedPath,
     projectPath: info.projectPath,
     summary: metadata.summary,
+    preview: metadata.preview,
     timestamp: metadata.firstTimestamp ?? info.modifiedTime,
     lastActivityAt: metadata.lastTimestamp ?? info.modifiedTime,
     messageCount: metadata.messageCount,
@@ -321,6 +323,23 @@ async function buildSessionSummary(
   allSessions: SessionInfo[],
   linkContextCache: Map<string, LinkContext>
 ): Promise<SessionSummary> {
+  if (info.isAgent) {
+    const { data } = await parseSessionSummary(info.filePath);
+
+    return {
+      id: info.id,
+      projectPath: info.projectPath,
+      gitBranch: data.metadata.gitBranch,
+      summary: data.metadata.summary,
+      preview: data.metadata.preview,
+      timestamp: data.metadata.firstTimestamp ?? info.modifiedTime,
+      lastActivityAt: data.metadata.lastTimestamp ?? info.modifiedTime,
+      messageCount: data.metadata.messageCount,
+      agentIds: [],
+      unresolvedAgentIds: [],
+    };
+  }
+
   const context = await getLinkContextForProject(info.projectPath, allSessions, linkContextCache);
   const analysis = context.analysisBySessionId.get(info.id);
   const metadata = analysis?.metadata ?? (await parseSessionMetadata(info.filePath)).data;
@@ -331,6 +350,7 @@ async function buildSessionSummary(
     projectPath: info.projectPath,
     gitBranch: metadata.gitBranch,
     summary: metadata.summary,
+    preview: metadata.preview,
     timestamp: metadata.firstTimestamp ?? info.modifiedTime,
     lastActivityAt: metadata.lastTimestamp ?? info.modifiedTime,
     messageCount: metadata.messageCount,
@@ -349,20 +369,36 @@ function findAgentSessionMatches(agentId: string, allSessions: SessionInfo[]): S
 }
 
 async function loadSessionRecord(info: SessionInfo, allSessions: SessionInfo[]): Promise<Session> {
-  const [{ data: messages }, { data: metadata }] = await Promise.all([
-    parseSessionFile(info.filePath),
-    parseSessionMetadata(info.filePath),
-  ]);
+  const { data } = await parseSessionFileWithMetadata(info.filePath);
 
   if (info.isAgent) {
-    return buildSessionRecord(info, messages, metadata, {
+    return buildSessionRecord(info, data.messages, data.metadata, {
       agentIds: [],
       unresolvedAgentIds: [],
     });
   }
 
-  const context = await getLinkContextForProject(info.projectPath, allSessions, new Map());
-  return buildSessionRecord(info, messages, metadata, resolveAgentLinks(info, context));
+  const context = await getLinkContextForProject(
+    info.projectPath,
+    allSessions,
+    new Map(),
+    new Map<string, MainSessionAnalysis>([
+      [
+        info.id,
+        {
+          metadata: data.metadata,
+          explicitAgentIds: data.explicitAgentIds,
+        },
+      ],
+    ])
+  );
+
+  return buildSessionRecord(
+    info,
+    data.messages,
+    data.metadata,
+    resolveAgentLinks(info, context)
+  );
 }
 
 // =============================================================================
@@ -373,7 +409,7 @@ async function loadSessionRecord(info: SessionInfo, allSessions: SessionInfo[]):
  * List all sessions with pagination.
  *
  * Sessions are sorted by most recent activity first (descending timestamp).
- * Agent sessions are excluded from the main list (they're linked via agentIds).
+ * Main and agent sessions are both returned as top-level rows.
  */
 export async function listSessions(
   config?: LibraryConfig
@@ -382,10 +418,8 @@ export async function listSessions(
   await validateDataPath(resolved.dataPath);
 
   const allSessions = await discoverSessions(resolved);
-  const mainSessions = sortSessionsByModifiedTime(
-    allSessions.filter((session) => !session.isAgent)
-  );
-  const paginatedInfos = paginate(mainSessions, resolved);
+  const sortedSessions = sortSessionsByModifiedTime(allSessions);
+  const paginatedInfos = paginate(sortedSessions, resolved);
   const linkContextCache = new Map<string, LinkContext>();
   const summaries: SessionSummary[] = [];
 
@@ -395,7 +429,7 @@ export async function listSessions(
 
   return {
     data: summaries,
-    pagination: createPagination(mainSessions.length, resolved),
+    pagination: createPagination(sortedSessions.length, resolved),
   };
 }
 

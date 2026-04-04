@@ -3,10 +3,14 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { mkdtemp, rm, writeFile } from 'fs/promises';
+import { tmpdir } from 'os';
 import { join } from 'path';
 import {
   parseJsonLine,
   parseJsonlFile,
+  parseSessionSummary,
+  scanJsonlFile,
   transformEntry,
   parseSessionFile,
   parseSessionMetadata,
@@ -15,6 +19,85 @@ import {
 } from '../../src/lib/parser.js';
 
 const FIXTURES_DIR = join(process.cwd(), 'tests', 'fixtures');
+
+async function writeTempJsonl(content: string): Promise<{ tempDir: string; filePath: string }> {
+  const tempDir = await mkdtemp(join(tmpdir(), 'cch-parser-test-'));
+  const filePath = join(tempDir, 'session.jsonl');
+  await writeFile(filePath, content);
+  return { tempDir, filePath };
+}
+
+describe('scanJsonlFile', () => {
+  it('should stream valid entries through an accumulator callback and recover from malformed lines', async () => {
+    const content = [
+      '{"type":"user","uuid":"msg-001","timestamp":"2026-04-01T00:00:00.000Z","message":{"role":"user","content":"Hello"}}',
+      '{bad json',
+      '{"type":"assistant","uuid":"msg-002","timestamp":"2026-04-01T00:00:01.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Hi"}]}}',
+    ].join('\n');
+    const { tempDir, filePath } = await writeTempJsonl(content);
+
+    try {
+      const result = await scanJsonlFile(filePath, { uuids: [] as string[] }, (entry, state) => {
+        state.uuids.push(entry.uuid ?? '');
+      });
+
+      expect(result.data.uuids).toEqual(['msg-001', 'msg-002']);
+      expect(result.warnings).toHaveLength(1);
+      expect(result.warnings[0]?.line).toBe(2);
+      expect(result.warnings[0]?.error).toContain('Invalid JSON');
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('parseSessionSummary', () => {
+  it('should derive a normalized 200-character preview from the earliest user string message', async () => {
+    const rawPreview = `   first line\n\tsecond line ${'x'.repeat(260)}`;
+    const normalizedPreview = `first line second line ${'x'.repeat(260)}`.slice(0, 200);
+    const content = [
+      JSON.stringify({
+        type: 'user',
+        uuid: 'msg-001',
+        timestamp: '2026-04-01T00:00:00.000Z',
+        sessionId: 'session-001',
+        cwd: '/tmp/project',
+        gitBranch: 'main',
+        version: '2.0.55',
+        message: {
+          role: 'user',
+          content: rawPreview,
+        },
+      }),
+      JSON.stringify({
+        type: 'user',
+        uuid: 'msg-002',
+        timestamp: '2026-04-01T00:00:01.000Z',
+        sessionId: 'session-001',
+        cwd: '/tmp/project',
+        gitBranch: 'main',
+        message: {
+          role: 'user',
+          content: 'later user message should not override preview',
+        },
+      }),
+    ].join('\n');
+    const { tempDir, filePath } = await writeTempJsonl(content);
+
+    try {
+      const result = await parseSessionSummary(filePath);
+
+      expect(result.data.metadata.summary).toBe(null);
+      expect(result.data.metadata.preview).toBe(normalizedPreview);
+      expect(result.data.metadata.preview).toHaveLength(200);
+      expect(result.data.metadata.firstTimestamp).toEqual(new Date('2026-04-01T00:00:00.000Z'));
+      expect(result.data.metadata.lastTimestamp).toEqual(new Date('2026-04-01T00:00:01.000Z'));
+      expect(result.data.metadata.messageCount).toBe(2);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+});
 
 describe('parseJsonLine', () => {
   it('should parse valid JSON line', () => {

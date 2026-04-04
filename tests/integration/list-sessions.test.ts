@@ -15,6 +15,7 @@ import {
   readFixture,
   writeProjectSessionFile,
 } from '../helpers/agent-linking.js';
+import { buildUntitledSessionJson } from '../helpers/large-session-fixtures.js';
 
 function createBulkSessionJson(
   sessionId: string,
@@ -90,6 +91,8 @@ describe('listSessions', () => {
     '{"type":"assistant","uuid":"agent-msg-002","parentUuid":"agent-msg-001","timestamp":"2025-12-02T10:05:30.000Z","sessionId":"session-002","agentId":"abc123","message":{"role":"assistant","model":"claude-haiku-4-5-20251001","content":[{"type":"text","text":"Results"}]}}',
   ].join('\n');
 
+  const untitledSessionId = '44444444-4444-4444-4444-444444444444';
+
   beforeAll(async () => {
     // Create test directory structure
     const project1Dir = join(projectsPath, '-test-project1');
@@ -103,6 +106,16 @@ describe('listSessions', () => {
     await writeFile(join(project1Dir, '22222222-2222-2222-2222-222222222222.jsonl'), session2);
     await writeFile(join(project1Dir, 'agent-abc123.jsonl'), agentSession);
     await writeFile(join(project2Dir, '33333333-3333-3333-3333-333333333333.jsonl'), session3);
+    await writeFile(
+      join(project2Dir, `${untitledSessionId}.jsonl`),
+      buildUntitledSessionJson({
+        sessionId: untitledSessionId,
+        projectPath: '/test/project2',
+        timestamp: '2025-12-04T10:00:00.000Z',
+        userPayloadSize: 260,
+        malformedLine: '{not valid json',
+      })
+    );
   });
 
   afterAll(async () => {
@@ -113,31 +126,52 @@ describe('listSessions', () => {
   it('should list all sessions', async () => {
     const result = await listSessions({ dataPath: testDataPath });
 
-    expect(result.data.length).toBe(3);
-    expect(result.pagination.total).toBe(3);
+    expect(result.data.length).toBe(5);
+    expect(result.pagination.total).toBe(5);
 
     // All sessions should be returned
     const ids = result.data.map((s) => s.id);
     expect(ids).toContain('11111111-1111-1111-1111-111111111111');
     expect(ids).toContain('22222222-2222-2222-2222-222222222222');
     expect(ids).toContain('33333333-3333-3333-3333-333333333333');
+    expect(ids).toContain('agent-abc123');
+    expect(ids).toContain(untitledSessionId);
   });
 
-  it('should exclude agent sessions from main list', async () => {
+  it('should include agent sessions as top-level rows with no link metadata', async () => {
     const result = await listSessions({ dataPath: testDataPath });
 
-    // Should not include agent sessions
-    const hasAgentSession = result.data.some((s) => s.id.startsWith('agent-'));
-    expect(hasAgentSession).toBe(false);
+    const agentSummary = result.data.find((session) => session.id === 'agent-abc123');
+    expect(agentSummary).toBeDefined();
+    expect(agentSummary?.summary).toBe('Agent task');
+    expect(agentSummary?.preview).toBe('Research task');
+    expect(agentSummary?.agentIds).toEqual([]);
+    expect(agentSummary?.unresolvedAgentIds).toEqual([]);
   });
 
-  it('should include session summaries', async () => {
+  it('should include session summaries and preserve summary over preview', async () => {
     const result = await listSessions({ dataPath: testDataPath });
 
     const summaries = result.data.map((s) => s.summary);
     expect(summaries).toContain('First test session');
     expect(summaries).toContain('Second test session');
     expect(summaries).toContain('Third session in different project');
+
+    const titledSession = result.data.find(
+      (session) => session.id === '11111111-1111-1111-1111-111111111111'
+    );
+    expect(titledSession?.summary).toBe('First test session');
+    expect(titledSession?.preview).toBe('Hello');
+  });
+
+  it('should expose fallback preview text for untitled sessions and recover from malformed lines', async () => {
+    const result = await listSessions({ dataPath: testDataPath });
+
+    const untitledSession = result.data.find((session) => session.id === untitledSessionId);
+    expect(untitledSession?.summary).toBeNull();
+    expect(untitledSession?.preview?.startsWith(`Prompt for ${untitledSessionId}`)).toBe(true);
+    expect(untitledSession?.preview?.length).toBeLessThanOrEqual(200);
+    expect(untitledSession?.messageCount).toBe(3);
   });
 
   it('should filter by workspace', async () => {
@@ -146,8 +180,8 @@ describe('listSessions', () => {
       workspace: '/test/project1',
     });
 
-    expect(result.data.length).toBe(2);
-    expect(result.pagination.total).toBe(2);
+    expect(result.data.length).toBe(3);
+    expect(result.pagination.total).toBe(3);
 
     // All sessions should be from project1
     for (const session of result.data) {
@@ -159,7 +193,7 @@ describe('listSessions', () => {
     const result = await listSessions({ dataPath: testDataPath, limit: 2 });
 
     expect(result.data.length).toBe(2);
-    expect(result.pagination.total).toBe(3);
+    expect(result.pagination.total).toBe(5);
     expect(result.pagination.limit).toBe(2);
     expect(result.pagination.hasMore).toBe(true);
   });
@@ -360,10 +394,15 @@ describe('listSessions nested agent linking', () => {
     await cleanupTempClaudeData(testDataPath);
   });
 
-  it('should keep nested agent files out of top-level list rows', async () => {
+  it('should include nested agent files as top-level list rows', async () => {
     const result = await listSessions({ dataPath: testDataPath });
 
-    expect(result.data.every((session) => !session.id.startsWith('agent-'))).toBe(true);
+    expect(result.data.some((session) => session.id === 'agent-linked123')).toBe(true);
+    expect(result.data.some((session) => session.id === 'agent-orphan111')).toBe(true);
+
+    const nestedAgentSummary = result.data.find((session) => session.id === 'agent-linked123');
+    expect(nestedAgentSummary?.agentIds).toEqual([]);
+    expect(nestedAgentSummary?.unresolvedAgentIds).toEqual([]);
   });
 
   it('should include linked and unresolved agent metadata only for the correct main session', async () => {
