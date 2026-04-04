@@ -212,12 +212,7 @@ describe('session listing heap regression', () => {
         tempData.projectsPath,
         MEMORY_PROJECT,
         fileName,
-        buildSimpleSessionJson(
-          sessionId,
-          MEMORY_WORKSPACE,
-          `Memory session ${index}`,
-          timestamp
-        )
+        buildSimpleSessionJson(sessionId, MEMORY_WORKSPACE, `Memory session ${index}`, timestamp)
       );
     }
   }, 120000);
@@ -226,21 +221,15 @@ describe('session listing heap regression', () => {
     await cleanupTempClaudeData(testDataPath);
   });
 
-  it(
-    'should list 1,000 sessions at or below 512 MiB peak heap while preserving summary rows',
-    async () => {
-      const { result, peakHeapBytes } = await samplePeakHeapBytes(
-        () => listSessions({ dataPath: testDataPath }),
-        1
-      );
+  it('should list 1,000 sessions at or below 512 MiB peak heap while preserving summary rows', async () => {
+    const { result, peakHeapBytes } = await samplePeakHeapBytes(
+      () => listSessions({ dataPath: testDataPath }),
+      1
+    );
 
-      expect(result.data).toHaveLength(MEMORY_SESSION_COUNT);
-      expect(result.pagination.total).toBe(MEMORY_SESSION_COUNT);
-      expect(result.data.some((session) => session.summary === 'Large memory session 25')).toBe(
-        true
-      );
-      expect(peakHeapBytes).toBeLessThanOrEqual(HEAP_LIMIT_BYTES);
-    },
-    120000
-  );
+    expect(result.data).toHaveLength(MEMORY_SESSION_COUNT);
+    expect(result.pagination.total).toBe(MEMORY_SESSION_COUNT);
+    expect(result.data.some((session) => session.summary === 'Large memory session 25')).toBe(true);
+    expect(peakHeapBytes).toBeLessThanOrEqual(HEAP_LIMIT_BYTES);
+  }, 120000);
 });

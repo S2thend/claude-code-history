@@ -61,9 +61,7 @@ function createTestSession(
             role: 'assistant',
             model: 'claude-3-sonnet',
             content:
-              typeof msg.content === 'string'
-                ? [{ type: 'text', text: msg.content }]
-                : msg.content,
+              typeof msg.content === 'string' ? [{ type: 'text', text: msg.content }] : msg.content,
             stop_reason: 'end_turn',
             usage: {
               input_tokens: 100,

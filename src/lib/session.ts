@@ -393,12 +393,7 @@ async function loadSessionRecord(info: SessionInfo, allSessions: SessionInfo[]):
     ])
   );
 
-  return buildSessionRecord(
-    info,
-    data.messages,
-    data.metadata,
-    resolveAgentLinks(info, context)
-  );
+  return buildSessionRecord(info, data.messages, data.metadata, resolveAgentLinks(info, context));
 }
 
 // =============================================================================
