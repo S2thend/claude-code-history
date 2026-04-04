@@ -29,12 +29,13 @@ function generateTestUUID(): string {
 function createTestSession(
   projectPath: string,
   sessionLabel: string,
-  messages: { type: string; content: string }[],
-  options?: { summary?: string }
+  messages: { type: string; content: string | unknown[] }[],
+  options?: { summary?: string | null; agentId?: string }
 ): void {
   const sessionId = generateTestUUID();
   const encodedPath = projectPath.replace(/\//g, '-');
   const sessionDir = join(TEST_PROJECTS_DIR, encodedPath);
+  const fileName = options?.agentId ? `agent-${options.agentId}.jsonl` : `${sessionId}.jsonl`;
 
   if (!existsSync(sessionDir)) {
     mkdirSync(sessionDir, { recursive: true });
@@ -46,8 +47,10 @@ function createTestSession(
     parentUuid: i > 0 ? `msg-${i - 1}` : null,
     timestamp: new Date(Date.now() - (messages.length - i) * 60000).toISOString(),
     sessionId: sessionId,
+    ...(options?.agentId ? { agentId: options.agentId } : {}),
     cwd: projectPath,
     version: '2.0.0',
+    ...(options?.agentId && msg.type === 'user' ? { isSidechain: true } : {}),
     message:
       msg.type === 'user'
         ? {
@@ -57,7 +60,8 @@ function createTestSession(
         : {
             role: 'assistant',
             model: 'claude-3-sonnet',
-            content: [{ type: 'text', text: msg.content }],
+            content:
+              typeof msg.content === 'string' ? [{ type: 'text', text: msg.content }] : msg.content,
             stop_reason: 'end_turn',
             usage: {
               input_tokens: 100,
@@ -68,18 +72,19 @@ function createTestSession(
           },
   }));
 
-  // Add summary entry
-  entries.unshift({
-    type: 'summary',
-    uuid: 'summary-1',
-    parentUuid: null,
-    timestamp: new Date().toISOString(),
-    summary: options?.summary ?? `Test session: ${sessionLabel}`,
-    leafUuid: `msg-${messages.length - 1}`,
-  } as unknown as (typeof entries)[0]);
+  if (options?.summary !== null) {
+    entries.unshift({
+      type: 'summary',
+      uuid: 'summary-1',
+      parentUuid: null,
+      timestamp: new Date().toISOString(),
+      summary: options?.summary ?? `Test session: ${sessionLabel}`,
+      leafUuid: `msg-${messages.length - 1}`,
+    } as unknown as (typeof entries)[0]);
+  }
 
   const jsonlContent = entries.map((e) => JSON.stringify(e)).join('\n');
-  writeFileSync(join(sessionDir, `${sessionId}.jsonl`), jsonlContent);
+  writeFileSync(join(sessionDir, fileName), jsonlContent);
 }
 
 /**
@@ -309,6 +314,107 @@ describe('cch list', () => {
       expect(json.data).toHaveLength(10);
       expect(json.pagination.limit).toBe(10);
       expect(json.pagination.hasMore).toBe(true);
+    });
+  });
+
+  describe('preview fallback and top-level agent rows', () => {
+    it('should render preview fallback in human-readable output and keep (No summary) for rows without preview', () => {
+      createTestSession(
+        '/Users/dev/project-preview',
+        'untitled-preview',
+        [{ type: 'user', content: 'Untitled preview from first user message' }],
+        { summary: null }
+      );
+      createTestSession(
+        '/Users/dev/project-no-preview',
+        'untitled-no-preview',
+        [
+          {
+            type: 'user',
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: 'tool-no-preview',
+                content: 'tool result only',
+              },
+            ],
+          },
+        ],
+        { summary: null }
+      );
+
+      const { stdout, exitCode } = runCli('list --full');
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Untitled preview from first');
+      expect(stdout).toContain('(No summary)');
+    });
+
+    it('should include preview in --json output and list agent sessions as top-level rows', () => {
+      createTestSession(
+        '/Users/dev/project-preview',
+        'untitled-main',
+        [{ type: 'user', content: 'Preview from untitled main session' }],
+        { summary: null }
+      );
+      createTestSession(
+        '/Users/dev/project-preview',
+        'untitled-agent',
+        [{ type: 'user', content: 'Preview from untitled agent session' }],
+        {
+          summary: null,
+          agentId: 'cli-preview',
+        }
+      );
+
+      const { stdout, exitCode } = runCli('list --json');
+      const json = JSON.parse(stdout);
+
+      expect(exitCode).toBe(0);
+      const mainRow = json.data.find((row: { id: string }) => !row.id.startsWith('agent-'));
+      const agentRow = json.data.find((row: { id: string }) => row.id === 'agent-cli-preview');
+
+      expect(mainRow.preview).toBe('Preview from untitled main session');
+      expect(agentRow).toBeDefined();
+      expect(agentRow.preview).toBe('Preview from untitled agent session');
+    });
+
+    it('should reduce untitled-session fallback detail fetches by at least 90% without --stats', () => {
+      for (let index = 0; index < 10; index++) {
+        createTestSession(
+          '/Users/dev/project-reduction',
+          `preview-${index}`,
+          [{ type: 'user', content: `Preview fallback row ${index}` }],
+          { summary: null }
+        );
+      }
+
+      createTestSession(
+        '/Users/dev/project-reduction',
+        'no-preview',
+        [
+          {
+            type: 'user',
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: 'tool-no-preview',
+                content: 'tool result only',
+              },
+            ],
+          },
+        ],
+        { summary: null }
+      );
+
+      const baselineFallbackFetchCount = 11;
+      const { stdout, exitCode } = runCli('list --full');
+      const currentFallbackFetchCount = (stdout.match(/\(No summary\)/g) ?? []).length;
+      const reductionRatio =
+        (baselineFallbackFetchCount - currentFallbackFetchCount) / baselineFallbackFetchCount;
+
+      expect(exitCode).toBe(0);
+      expect(reductionRatio).toBeGreaterThanOrEqual(0.9);
     });
   });
 

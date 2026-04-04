@@ -3,13 +3,130 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { classifyMessage, filterMessages } from '../../src/lib/session.js';
+import { join } from 'path';
+import {
+  classifyMessage,
+  filterMessages,
+  getAgentSession,
+  getSession,
+  listSessions,
+} from '../../src/lib/session.js';
+import {
+  cleanupTempClaudeData,
+  createTempClaudeData,
+  writeProjectSessionFile,
+} from '../helpers/agent-linking.js';
+import { buildUntitledSessionJson } from '../helpers/large-session-fixtures.js';
+import { countTargetFileParserScans } from '../helpers/parser-performance.js';
 import type {
   Message,
   UserMessage,
   AssistantMessage,
   ProgressMessage,
 } from '../../src/lib/types.js';
+
+const PREVIEW_SESSION_ID = 'aaaaaaaa-bbbb-cccc-dddd-000000000001';
+const PREVIEW_AGENT_ID = 'preview123';
+const PREVIEW_PROJECT = '/tmp/session-preview-project';
+const PREVIEW_ENCODED_PROJECT = '-tmp-session-preview-project';
+
+describe('session preview and parser orchestration', () => {
+  it('should propagate summary preview values through listSessions() and getSession()', async () => {
+    const tempData = await createTempClaudeData('cch-session-preview-');
+
+    try {
+      await writeProjectSessionFile(
+        tempData.projectsPath,
+        PREVIEW_ENCODED_PROJECT,
+        `${PREVIEW_SESSION_ID}.jsonl`,
+        buildUntitledSessionJson({
+          sessionId: PREVIEW_SESSION_ID,
+          projectPath: PREVIEW_PROJECT,
+          timestamp: '2026-04-03T10:00:00.000Z',
+          userPayloadSize: 260,
+        })
+      );
+
+      const summaries = await listSessions({ dataPath: tempData.dataPath });
+      const summary = summaries.data.find((session) => session.id === PREVIEW_SESSION_ID);
+
+      expect(summary?.summary).toBeNull();
+      expect(summary?.preview).toBeTypeOf('string');
+      expect(summary?.preview?.startsWith(`Prompt for ${PREVIEW_SESSION_ID}`)).toBe(true);
+      expect(summary?.preview?.length).toBeLessThanOrEqual(200);
+
+      const session = await getSession(PREVIEW_SESSION_ID, { dataPath: tempData.dataPath });
+      expect(session.preview).toBe(summary?.preview);
+    } finally {
+      await cleanupTempClaudeData(tempData.dataPath);
+    }
+  });
+
+  it('should parse one getSession() target transcript only once', async () => {
+    const tempData = await createTempClaudeData('cch-session-scan-count-');
+    const targetFilePath = join(
+      tempData.projectsPath,
+      PREVIEW_ENCODED_PROJECT,
+      `${PREVIEW_SESSION_ID}.jsonl`
+    );
+
+    try {
+      await writeProjectSessionFile(
+        tempData.projectsPath,
+        PREVIEW_ENCODED_PROJECT,
+        `${PREVIEW_SESSION_ID}.jsonl`,
+        buildUntitledSessionJson({
+          sessionId: PREVIEW_SESSION_ID,
+          projectPath: PREVIEW_PROJECT,
+          timestamp: '2026-04-03T10:00:00.000Z',
+        })
+      );
+
+      const { result: session, scanCount } = await countTargetFileParserScans(
+        targetFilePath,
+        async () => getSession(PREVIEW_SESSION_ID, { dataPath: tempData.dataPath })
+      );
+
+      expect(session.id).toBe(PREVIEW_SESSION_ID);
+      expect(scanCount).toBe(1);
+    } finally {
+      await cleanupTempClaudeData(tempData.dataPath);
+    }
+  });
+
+  it('should parse one getAgentSession() target transcript only once', async () => {
+    const tempData = await createTempClaudeData('cch-agent-scan-count-');
+    const targetFilePath = join(
+      tempData.projectsPath,
+      PREVIEW_ENCODED_PROJECT,
+      `agent-${PREVIEW_AGENT_ID}.jsonl`
+    );
+
+    try {
+      await writeProjectSessionFile(
+        tempData.projectsPath,
+        PREVIEW_ENCODED_PROJECT,
+        `agent-${PREVIEW_AGENT_ID}.jsonl`,
+        buildUntitledSessionJson({
+          sessionId: PREVIEW_SESSION_ID,
+          agentId: PREVIEW_AGENT_ID,
+          projectPath: PREVIEW_PROJECT,
+          timestamp: '2026-04-03T10:00:00.000Z',
+        })
+      );
+
+      const { result: session, scanCount } = await countTargetFileParserScans(
+        targetFilePath,
+        async () => getAgentSession(PREVIEW_AGENT_ID, { dataPath: tempData.dataPath })
+      );
+
+      expect(session.id).toBe(`agent-${PREVIEW_AGENT_ID}`);
+      expect(scanCount).toBe(1);
+    } finally {
+      await cleanupTempClaudeData(tempData.dataPath);
+    }
+  });
+});
 
 describe('classifyMessage', () => {
   describe('user messages', () => {

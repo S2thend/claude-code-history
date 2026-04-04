@@ -16,10 +16,12 @@ function createMockSession(overrides: Partial<SessionSummary> = {}): SessionSumm
     projectPath: '/Users/dev/my-project',
     gitBranch: 'main',
     summary: 'Test session summary',
+    preview: null,
     timestamp: new Date('2025-01-15T10:30:00Z'),
     lastActivityAt: new Date('2025-01-15T11:00:00Z'),
     messageCount: 25,
     agentIds: [],
+    unresolvedAgentIds: [],
     ...overrides,
   };
 }
@@ -122,6 +124,47 @@ describe('formatSessionTable', () => {
     const result = formatSessionTable(sessions);
 
     expect(result).toContain('(No summary)');
+  });
+
+  it('should use preview when summary is absent', () => {
+    const sessions = [
+      createMockSession({
+        summary: null,
+        preview: 'Fallback preview text for an untitled session',
+      }),
+    ];
+    const result = formatSessionTable(sessions);
+
+    expect(result).toContain('Fallback preview text');
+    expect(result).not.toContain('(No summary)');
+  });
+
+  it('should prefer summary over preview when both are present', () => {
+    const sessions = [
+      createMockSession({
+        summary: 'Explicit title',
+        preview: 'Fallback preview text',
+      }),
+    ];
+    const result = formatSessionTable(sessions);
+
+    expect(result).toContain('Explicit title');
+    expect(result).not.toContain('Fallback preview text');
+  });
+
+  it('should truncate long preview fallback text for display only', () => {
+    const longPreview = 'x'.repeat(200);
+    const sessions = [
+      createMockSession({
+        summary: null,
+        preview: longPreview,
+      }),
+    ];
+    const result = formatSessionTable(sessions);
+
+    expect(result).toContain(`${'x'.repeat(27)}...`);
+    expect(result).not.toContain(longPreview);
+    expect(sessions[0]?.preview).toHaveLength(200);
   });
 });
 

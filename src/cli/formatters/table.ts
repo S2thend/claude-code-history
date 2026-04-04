@@ -70,15 +70,10 @@ function formatDate(date: Date): string {
 
 /**
  * Get a display summary for a session.
- * Uses the session summary if available, otherwise uses first user message.
+ * Uses explicit summary, then derived preview, then a placeholder.
  */
 function getDisplaySummary(session: SessionSummary): string {
-  if (session.summary) {
-    return session.summary;
-  }
-  // The lib layer should provide a fallback summary
-  // For now, return a placeholder
-  return '(No summary)';
+  return session.summary ?? session.preview ?? '(No summary)';
 }
 
 /**
