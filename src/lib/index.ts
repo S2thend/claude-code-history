@@ -75,6 +75,8 @@ export {
   AmbiguousAgentSessionError,
   WorkspaceNotFoundError,
   DataNotFoundError,
+  DuplicateMessageConflictError,
+  isDuplicateMessageConflictError,
   isAmbiguousAgentSessionError,
   isSessionNotFoundError,
   isWorkspaceNotFoundError,

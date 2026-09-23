@@ -60,9 +60,28 @@ export class AmbiguousAgentSessionError extends Error {
   }
 }
 
+/** Error raised when one transcript contains conflicting records for a message UUID. */
+export class DuplicateMessageConflictError extends Error {
+  readonly name = 'DuplicateMessageConflictError' as const;
+
+  constructor(
+    readonly messageUuid: string,
+    readonly filePath?: string
+  ) {
+    super(`Conflicting duplicate message UUID ${messageUuid}${filePath ? ` in ${filePath}` : ''}`);
+    Object.setPrototypeOf(this, DuplicateMessageConflictError.prototype);
+  }
+}
+
 // =============================================================================
 // Type Guards
 // =============================================================================
+
+export function isDuplicateMessageConflictError(
+  error: unknown
+): error is DuplicateMessageConflictError {
+  return error instanceof DuplicateMessageConflictError;
+}
 
 /**
  * Check if error is a SessionNotFoundError.
