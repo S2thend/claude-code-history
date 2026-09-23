@@ -355,6 +355,24 @@ console.log(result);
 // { successCount: 2, failedCount: 0, errors: [] }
 ```
 
+### Duplicate Messages
+
+Session reads and summary counts deduplicate `user`, `assistant`, and `progress`
+records with the same non-empty UUID within each transcript file. The first
+occurrence is retained. Object key order and the top-level `origin` field are
+ignored when comparing records; all other fields, including unknown payloads,
+are compared. Identical text under different UUIDs remains separate messages.
+
+Conflicting records with the same UUID cause a `DuplicateMessageConflictError`
+with `messageUuid` and `filePath` properties. This also applies to summary scans,
+so callers can detect conflicts before consuming incorrect counts. The exported
+`isDuplicateMessageConflictError()` guard identifies these errors.
+
+Records without UUIDs, summaries, and file-history snapshots remain independent
+records. Raw JSONL parsing preserves every record. Summary scans retain only
+UUIDs and fixed-size fingerprints for duplicate detection, rather than complete
+message bodies.
+
 ### Custom Data Path
 
 ```typescript

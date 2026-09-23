@@ -9,6 +9,8 @@
 
 import { createReadStream } from 'fs';
 import { createInterface } from 'readline';
+import { createHash, type Hash } from 'crypto';
+import { DuplicateMessageConflictError } from './errors.js';
 import type {
   RawSessionEntry,
   RawMessage,
@@ -97,16 +99,21 @@ export async function scanJsonlFile<TState>(
 
   let lineNumber = 0;
 
-  for await (const line of rl) {
-    lineNumber++;
-    const result = parseJsonLine(line, lineNumber);
+  try {
+    for await (const line of rl) {
+      lineNumber++;
+      const result = parseJsonLine(line, lineNumber);
 
-    if (result.entry) {
-      visitEntry(result.entry, initialState);
-    } else if (result.warning && result.warning.error !== 'Empty line') {
-      // Only track non-empty line warnings
-      warnings.push(result.warning);
+      if (result.entry) {
+        visitEntry(result.entry, initialState);
+      } else if (result.warning && result.warning.error !== 'Empty line') {
+        // Only track non-empty line warnings
+        warnings.push(result.warning);
+      }
     }
+  } finally {
+    rl.close();
+    fileStream.destroy();
   }
 
   return { data: initialState, warnings };
@@ -478,9 +485,72 @@ export async function parseSessionFile(filePath: string): Promise<ParseResult<Me
 // Session Metadata Extraction
 // =============================================================================
 
+/** Hash canonical JSON incrementally without retaining serialized message bodies. */
+function hashJsonValue(hash: Hash, value: unknown): void {
+  if (Array.isArray(value)) {
+    hash.update('[');
+    for (const item of value) {
+      hashJsonValue(hash, item);
+      hash.update(',');
+    }
+    hash.update(']');
+  } else if (typeof value === 'object' && value !== null) {
+    const record = value as Record<string, unknown>;
+    hash.update('{');
+    for (const key of Object.keys(record).sort()) {
+      if (record[key] === undefined) continue;
+      hash.update(JSON.stringify(key));
+      hash.update(':');
+      hashJsonValue(hash, record[key]);
+      hash.update(',');
+    }
+    hash.update('}');
+  } else {
+    hash.update(JSON.stringify(value) ?? 'null');
+  }
+}
+
+/**
+ * Deduplicate transcript messages within one file, before transformation.
+ * Retain only UUIDs and fixed-size fingerprints, including for summary scans.
+ * Only top-level origin is provenance; preserve unknown fields in comparisons
+ * so transformation cannot hide conflicting payloads. Non-transcript records
+ * and messages without usable UUIDs remain independent records.
+ */
+function acceptMessageEntry(
+  entry: RawSessionEntry,
+  seen: Map<string, string>,
+  filePath?: string
+): boolean {
+  if (
+    !['user', 'assistant', 'progress'].includes(entry.type) ||
+    typeof entry.uuid !== 'string' ||
+    entry.uuid.length === 0
+  ) {
+    return true;
+  }
+
+  const semanticEntry = { ...entry } as Record<string, unknown>;
+  delete semanticEntry.origin;
+  const hash = createHash('sha256');
+  hashJsonValue(hash, semanticEntry);
+  const fingerprint = hash.digest('hex');
+  const previous = seen.get(entry.uuid);
+
+  if (previous !== undefined) {
+    if (previous !== fingerprint) {
+      throw new DuplicateMessageConflictError(entry.uuid, filePath);
+    }
+    return false;
+  }
+
+  seen.set(entry.uuid, fingerprint);
+  return true;
+}
+
 /**
  * Extract session metadata from raw entries (summary, version, etc.).
- * Reads only the necessary fields without full message parsing.
+ * Validates duplicate UUIDs without retaining full message bodies.
  */
 export interface SessionMetadata {
   summary: string | null;
@@ -570,9 +640,12 @@ function updateMetadataFromEntry(metadata: SessionMetadata, entry: RawSessionEnt
  */
 export function extractMetadata(entries: RawSessionEntry[]): SessionMetadata {
   const metadata = createEmptySessionMetadata();
+  const seen = new Map<string, string>();
 
   for (const entry of entries) {
-    updateMetadataFromEntry(metadata, entry);
+    if (acceptMessageEntry(entry, seen)) {
+      updateMetadataFromEntry(metadata, entry);
+    }
   }
 
   return metadata;
@@ -586,8 +659,11 @@ export function extractMetadata(entries: RawSessionEntry[]): SessionMetadata {
 export async function parseSessionMetadata(
   filePath: string
 ): Promise<ParseResult<SessionMetadata>> {
+  const seen = new Map<string, string>();
   return scanJsonlFile(filePath, createEmptySessionMetadata(), (entry, metadata) => {
-    updateMetadataFromEntry(metadata, entry);
+    if (acceptMessageEntry(entry, seen, filePath)) {
+      updateMetadataFromEntry(metadata, entry);
+    }
   });
 }
 
@@ -647,12 +723,14 @@ export function extractExplicitAgentIds(entries: RawSessionEntry[]): string[] {
 export async function parseSessionSummary(
   filePath: string
 ): Promise<ParseResult<SessionSummaryScanResult>> {
+  const seen = new Map<string, string>();
   const initialState = {
     metadata: createEmptySessionMetadata(),
     explicitAgentIds: new Set<string>(),
   };
 
   const { data, warnings } = await scanJsonlFile(filePath, initialState, (entry, state) => {
+    if (!acceptMessageEntry(entry, seen, filePath)) return;
     updateMetadataFromEntry(state.metadata, entry);
     collectExplicitAgentIdsFromEntry(entry, state.explicitAgentIds);
   });
@@ -674,6 +752,7 @@ export async function parseSessionSummary(
 export async function parseSessionFileWithMetadata(
   filePath: string
 ): Promise<ParseResult<SessionFileScanResult>> {
+  const seen = new Map<string, string>();
   const initialState = {
     messages: [] as Message[],
     metadata: createEmptySessionMetadata(),
@@ -681,6 +760,7 @@ export async function parseSessionFileWithMetadata(
   };
 
   const { data, warnings } = await scanJsonlFile(filePath, initialState, (entry, state) => {
+    if (!acceptMessageEntry(entry, seen, filePath)) return;
     updateMetadataFromEntry(state.metadata, entry);
     collectExplicitAgentIdsFromEntry(entry, state.explicitAgentIds);
 
